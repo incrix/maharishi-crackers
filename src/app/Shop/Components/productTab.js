@@ -47,8 +47,8 @@ const cardVariants = {
 };
 
 function CategorySection({ config, products, index }) {
-  if (products.length === 0) return null;
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.05, rootMargin: "60px" });
+  if (products.length === 0) return null;
 
   return (
     <div ref={ref}>

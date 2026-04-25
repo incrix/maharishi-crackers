@@ -255,7 +255,7 @@ export default function CartPage() {
                 Your cart is empty
               </Typography>
               <Typography sx={{ fontSize: 14, color: "#999", textAlign: "center", maxWidth: 300 }}>
-                Looks like you haven't added any crackers yet. Browse our collection and light up your celebrations!
+                Looks like you haven&apos;t added any crackers yet. Browse our collection and light up your celebrations!
               </Typography>
               <Button
                 disableElevation
@@ -619,7 +619,7 @@ export default function CartPage() {
                 Place Your Order
               </Typography>
               <Typography sx={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
-                Enter your details and we'll get back to you
+                Enter your details and we&apos;ll get back to you
               </Typography>
             </Stack>
           </Stack>
