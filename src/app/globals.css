@@ -1,0 +1,69 @@
+/* globals.css — Maharishi Crackers */
+
+:root {
+  --background: #faf9f6;
+  --foreground: #1a1a1a;
+  --primary: #1a4d2e;
+  --primary-light: #2d7a4a;
+  --secondary: #b8963e;
+  --secondary-light: #d4af5e;
+  --tertiary: #8b1a1a;
+  --quaternary: #f5f0e1;
+  --border: #d5cdb8;
+  --border-color: #c4b998;
+  --card-color: #f7f4ed;
+  --category-color: #e8f0e4;
+  --loading-color: #e8f0e4;
+  --gold-gradient: linear-gradient(135deg, #b8963e 0%, #d4af5e 50%, #b8963e 100%);
+  --green-gradient: linear-gradient(135deg, #1a4d2e 0%, #2d7a4a 50%, #1a4d2e 100%);
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background-color: var(--secondary);
+  color: #fff;
+}
+
+::-moz-selection {
+  background-color: var(--secondary);
+  color: #fff;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--quaternary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--secondary);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
