@@ -36,6 +36,25 @@ export default function PackingList({ items, onToggle, onTickAll, onUnavailable,
           <Typography fontSize={12} fontWeight={700} color="var(--text-color-secondary)">
             {settled}/{items.length} done{short ? ` · ${short} short` : ""}
           </Typography>
+          {/* Editing a raised bill. Available in every state except cancelled,
+              which the server refuses - a dispatched order can still be
+              corrected if the customer rings back. */}
+          {onAdd && (
+            <Button
+              size="small"
+              onClick={onAdd}
+              disabled={busy}
+              startIcon={<AddRoundedIcon sx={{ fontSize: 16 }} />}
+              sx={{
+                textTransform: "none", fontWeight: 800, fontSize: 12, py: 0.25, px: 1.25,
+                minWidth: 0, borderRadius: "var(--radius-pill)", color: "#fff",
+                backgroundColor: "var(--primary-color)",
+                "&:hover": { backgroundColor: "var(--primary-dark)" },
+              }}
+            >
+              Add product
+            </Button>
+          )}
           {onTickAll && !locked && (
             <Button
               size="small"
@@ -167,6 +186,19 @@ export default function PackingList({ items, onToggle, onTickAll, onUnavailable,
                   sx={{ ...miniBtn, color: "var(--primary-color)", borderColor: "#cfe0c8" }}>
                   {swapped ? "Change replacement" : "Replace"}
                 </Button>
+
+                {/* Distinct from "out of stock": that records a line the shop
+                    could not fill and keeps it on the bill at zero. This takes
+                    the line off the order altogether. */}
+                {onRemove && (
+                  <Tooltip title="Take this line off the order entirely">
+                    <Button size="small" disabled={busy} onClick={() => onRemove(it)}
+                      startIcon={<DeleteOutlineRoundedIcon sx={{ fontSize: 14 }} />}
+                      sx={{ ...miniBtn, color: "var(--danger-ink)", borderColor: "var(--danger-soft)" }}>
+                      Remove
+                    </Button>
+                  </Tooltip>
+                )}
               </Stack>
             </Stack>
           );
