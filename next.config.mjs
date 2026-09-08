@@ -8,7 +8,7 @@ const nextConfig = {
   // cannot shadow this app's own route handlers.
   images: {
     // Product photos are delivered from Cloudinary. The previous entry allowed
-    // thunder.sankamithra.com, which hosts nothing this site uses.
+    // an inherited domain that hosts nothing this site uses.
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com", port: "", pathname: "/**" },
     ],

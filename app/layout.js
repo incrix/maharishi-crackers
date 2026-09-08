@@ -75,8 +75,8 @@ export default async function RootLayout({ children }) {
                 <Footer />
               </ShopChrome>
               {/* TODO(abishek): Maharishi's own GA4 measurement ID. The
-                  Sankamithra property (G-BVTWT7NXQW) was removed — leaving it
-                  would report Maharishi's traffic into their analytics. */}
+                  inherited analytics property was removed — leaving it would
+                  report Maharishi's traffic into another company's account. */}
               {process.env.NEXT_PUBLIC_GA_ID ? (
                 <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
               ) : null}

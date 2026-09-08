@@ -7,7 +7,7 @@
  *
  * TODO(abishek): point NEXT_PUBLIC_ASSET_BASE at Maharishi's own asset host.
  * Until then this falls back to a local /database folder — it must NOT fall
- * back to Sankamithra's domain.
+ * back to any inherited domain.
  *
  * Override per environment with NEXT_PUBLIC_ASSET_BASE (no trailing slash).
  * Point it at "/database" to serve from a local public/database folder instead.

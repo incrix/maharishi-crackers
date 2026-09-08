@@ -16,7 +16,7 @@ export const SITE_URL = (
  * Whether Maharishi's supplier certifications have been verified.
  *
  * The green-certified and ISO 9001:2015 badges were inherited from the
- * Sankamithra build. Displaying a certification mark the business cannot
+ * inherited build. Displaying a certification mark the business cannot
  * evidence is a factual claim about a regulated product, so the badges and the
  * copy that references them stay hidden until this is deliberately switched on.
  *
