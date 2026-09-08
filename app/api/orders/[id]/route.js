@@ -30,7 +30,16 @@ export async function PATCH(request, { params }) {
   // Retried: a packer ticking through a list should not lose a change because
   // the cluster shed load for a moment.
   const before = await withRetry(() => getOrder(params.id));
-  const order = await withRetry(() => updateOrder(params.id, patch));
+
+  // Rejections from the store are the caller's fault, not the server's - an
+  // unknown product, or an edit to a cancelled bill. Surface the reason rather
+  // than a bare 500 the panel cannot explain.
+  let order;
+  try {
+    order = await withRetry(() => updateOrder(params.id, patch));
+  } catch (err) {
+    return Response.json({ error: err.message || "Could not update the order" }, { status: 400 });
+  }
   if (!order) return Response.json({ error: "Not found" }, { status: 404 });
 
   // Tell the customer when the status genuinely moved, so the shop never has to

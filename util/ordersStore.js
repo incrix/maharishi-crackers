@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { collection, isDbConfigured } from "@/util/db/mongo";
 import * as fileStore from "./ordersStore.file";
+import { getCatalogue } from "@/util/productsStore";
 
 /**
  * Order storage.
@@ -187,6 +188,11 @@ async function applyOnce(id, patch) {
 
   const next = { ...prev, updatedAt: new Date().toISOString() };
 
+  // A cancelled bill is settled. Re-open it first if it genuinely needs changing.
+  if (prev.status === "cancelled" && (patch.addItem || patch.removeItem !== undefined)) {
+    throw new Error("This order is cancelled - reopen it before changing the items");
+  }
+
   if (patch.status && STATUSES.includes(patch.status) && patch.status !== prev.status) {
     next.status = patch.status;
     next.history = [...(prev.history || []), { at: next.updatedAt, event: `Marked ${STATUS_LABEL[patch.status]}` }];
@@ -198,6 +204,74 @@ async function applyOnce(id, patch) {
 
   if (typeof patch.note === "string") next.note = patch.note;
   if (typeof patch.emailSent === "boolean") next.emailSent = patch.emailSent;
+
+  /**
+   * Add a product to an existing bill.
+   *
+   * The price is read from the catalogue here, never taken from the request -
+   * the same rule the checkout follows, so a bill can't be edited into a
+   * different total than the catalogue supports. Adding a product already on
+   * the order raises that line instead of creating a second one.
+   */
+  if (patch.addItem) {
+    const wanted = String(patch.addItem.productId ?? patch.addItem.id ?? "");
+    const qty = Math.max(1, Math.round(Number(patch.addItem.count) || 1));
+    // The admin catalogue, not the public list: staff may legitimately add a
+    // product that is hidden from the storefront.
+    const { products: catalogue } = await getCatalogue();
+    const product = catalogue.find((p) => String(p.id) === wanted);
+    if (!product) throw new Error("That product is no longer in the catalogue");
+
+    const items = [...(next.items || prev.items || [])];
+    const at = items.findIndex((it) => String(it.id) === wanted);
+
+    if (at >= 0) {
+      const line = items[at];
+      const count = (line.count || 0) + qty;
+      items[at] = {
+        ...line,
+        count,
+        total: Math.round((line.unitPrice || 0) * count),
+        // Re-adding something previously written off puts it back in play.
+        unavailable: false,
+        packed: false,
+      };
+      next.history = [...(next.history || []),
+        { at: next.updatedAt, event: `${line.name} quantity raised ${line.count} -> ${count}` }];
+    } else {
+      const line = {
+        id: product.id,
+        name: product.name,
+        category: product.category,
+        image: product.image?.[0] || null,
+        unitPrice: unit(product),
+        mrp: product.price,
+        discount: product.discount || 0,
+        count: qty,
+        total: Math.round(unit(product) * qty),
+        packed: false,
+        unavailable: false,
+        substitute: null,
+        addedAfterBilling: true,
+      };
+      items.push(line);
+      next.history = [...(next.history || []),
+        { at: next.updatedAt, event: `${line.name} x${qty} added to the order` }];
+    }
+    next.items = items;
+  }
+
+  /** Take a line off the bill entirely, as opposed to writing it off as unavailable. */
+  if (patch.removeItem !== undefined) {
+    const target = String(patch.removeItem);
+    const items = next.items || prev.items || [];
+    const gone = items.find((it) => String(it.id) === target);
+    if (gone) {
+      next.items = items.filter((it) => String(it.id) !== target);
+      next.history = [...(next.history || []),
+        { at: next.updatedAt, event: `${gone.name} removed from the order` }];
+    }
+  }
 
   if (patch.itemId !== undefined) {
     const events = [];

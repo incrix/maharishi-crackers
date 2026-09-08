@@ -8,6 +8,7 @@ import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
 import PackingList from "./PackingList";
 import SubstitutePicker from "./SubstitutePicker";
+import AddItemPicker from "./AddItemPicker";
 import OrderActions from "./OrderActions";
 import StatusChip from "./StatusChip";
 import { useState, useEffect, useMemo } from "react";
@@ -26,6 +27,7 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
   // Hooks must run before any early return, or the hook order changes between
   // renders as soon as `order` goes null.
   const [swapFor, setSwapFor] = useState(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   /**
    * Which lines the packer has ticked off, held here rather than in the order.
@@ -151,6 +153,15 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
           locked={order.status !== "new" && order.status !== "packing"}
           onUnavailable={(it, flag) => onPatch({ itemId: it.id, unavailable: flag })}
           onSubstitute={(it) => setSwapFor(it)}
+          onRemove={(it) => onPatch({ removeItem: it.id })}
+          onAdd={() => setAddOpen(true)}
+        />
+
+        <AddItemPicker
+          open={addOpen}
+          order={order}
+          onClose={() => setAddOpen(false)}
+          onAdd={(payload) => onPatch({ addItem: payload })}
         />
 
         <SubstitutePicker

@@ -4,6 +4,8 @@ import DoneAllRoundedIcon from "@mui/icons-material/DoneAllRounded";
 import SwapHorizRoundedIcon from "@mui/icons-material/SwapHorizRounded";
 import RemoveShoppingCartRoundedIcon from "@mui/icons-material/RemoveShoppingCartRounded";
 import UndoRoundedIcon from "@mui/icons-material/UndoRounded";
+import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import { assetUrl } from "@/util/config";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -16,7 +18,7 @@ const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
  * with another product; a line the packer can't fill never blocks the order
  * from being completed.
  */
-export default function PackingList({ items, onToggle, onTickAll, onUnavailable, onSubstitute, busy, locked }) {
+export default function PackingList({ items, onToggle, onTickAll, onUnavailable, onSubstitute, onRemove, onAdd, busy, locked }) {
   // A line is settled once it's packed, or once the packer has recorded that
   // it couldn't be filled. Both count as "dealt with".
   const settled = items.filter((i) => i.packed || (i.unavailable && !i.substitute)).length;
