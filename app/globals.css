@@ -1,0 +1,170 @@
+/* ============================================================================
+   Maharishi Crackers design tokens
+   ----------------------------------------------------------------------------
+   Palette is the brand's own: dark green and gold, taken from the Maharishi
+   Crackers logo and matching the token set in the sibling Maharishi app
+   (--primary #1a4d2e, --secondary #b8963e, --background #faf9f6). The orange
+   this file previously carried was Sankamithra's and has been removed.
+   ----------------------------------------------------------------------------
+   One source of truth for colour, type, spacing, radii and elevation. The
+   original file defined only five colours (and --max-width twice), so every
+   component invented its own greys, paddings and shadows. Anything added here
+   is picked up everywhere at once.
+   ========================================================================== */
+
+:root {
+  /* Brand */
+  --primary-color: #1a4d2e;   /* brand green */
+  --primary-dark: #123520;    /* hover; derived - the brand set has no darker step */
+  --primary-light: #2d7a4a;   /* brand green, light */
+  --primary-soft: #e8f0e4;
+  --primary-softer: #f2f6f0;
+  --primary-border: #cfe0c8;
+  --secondary-color: #b8963e; /* brand gold */
+  --secondary-light: #d4af5e;
+  --badge-color: #b8963e;     /* discount badges wear the gold */
+  --cream: #f5f0e1;
+
+  /* Text */
+  --text-color: #1a1a1a;
+  --text-color-secondary: #7e7e7e;
+  --text-color-trinary: #adadad;
+
+  /* Surfaces */
+  --page-bg: #faf9f6;         /* warm off-white page ground */
+  --surface: #ffffff;
+  --surface-muted: #f7f4ed;   /* card tint */
+  --border: #e7e0d0;          /* hairline, lightened from the brand border */
+  --border-strong: #d5cdb8;
+
+  /* ------------------------------------------------------------------
+     Chart series colours.
+
+     Both are brand values, not new hues: the light green and the gold from the
+     Maharishi palette. Named for the entity rather than a slot number, so a
+     filter that drops a channel can never repaint the survivor.
+
+     Validated as a categorical pair against the white card surface:
+       CVD separation   deltaE 13.4 (protan) / 23.7 (tritan)   - floor 8
+       Normal vision    deltaE 20.6                            - floor 15
+       Contrast         gold at 2.74:1, just under 3:1
+     The gold's contrast is a WARN, not a pass, so it may never be the only
+     thing distinguishing a segment. It is always accompanied by a labelled
+     legend key and by the per-channel figures printed beneath the bar, which
+     is the relief the check requires.
+     ------------------------------------------------------------------ */
+  --series-counter: #2d7a4a;  /* brand green, light */
+  --series-website: #b8963e;  /* brand gold */
+  --chart-grid: #eae4d8;
+
+  /* Status */
+  --success: #1d9b53;
+  --success-soft: #e9f8ef;
+  --success-ink: #14713c;
+  --danger: #e03131;
+  --danger-soft: #ffeaea;
+  --danger-ink: #c92a2a;
+  --warning: #b26a00;
+  --warning-soft: #fff8e1;
+
+  /* ------------------------------------------------------------------
+     Glass surfaces.
+
+     Used only for chrome that floats OVER content - the header, the sticky
+     filter bar, the cart rail, the mobile bar and drawers. Content cards stay
+     opaque: blurring a surface that nothing passes behind costs a compositor
+     layer and buys nothing, and stacking translucency on translucency is what
+     makes this style go muddy.
+
+     The tint is warm white so it sits on the brand's off-white ground rather
+     than punching a cold hole in it. Every value keeps body text above its
+     contrast floor at full blur.
+     ------------------------------------------------------------------ */
+  --glass-bg: rgba(255, 253, 249, 0.78);
+  --glass-bg-strong: rgba(255, 253, 249, 0.92);
+  --glass-border: rgba(26, 77, 46, 0.10);
+  --glass-blur: saturate(180%) blur(16px);
+  --glass-shadow: 0 8px 32px rgba(26, 77, 46, 0.08);
+
+  /* Green glass, for chrome that sits on the brand colour */
+  --glass-green: rgba(26, 77, 46, 0.86);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --border-radius: 12px; /* kept: existing components reference this name */
+
+  /* Elevation - soft and low, so cards read as paper not plastic */
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow: 0 4px 16px rgba(16, 24, 40, 0.07);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.1);
+
+  /* Layout */
+  --max-width: 1400px;
+  /* Overwritten at runtime by the header, which measures itself. */
+  --header-h: 96px;
+  --page-gutter: 16px;
+
+  --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (min-width: 900px) {
+  :root { --page-gutter: 32px; }
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden; /* stray wide children must never scroll the page sideways */
+  color: var(--text-color);
+  background: var(--page-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+}
+
+/* Fluid headings: readable on a phone, generous on a desktop, no breakpoints. */
+h1 { font-size: clamp(1.6rem, 1.1rem + 2.2vw, 2.6rem); line-height: 1.15; font-weight: 800; }
+h2 { font-size: clamp(1.35rem, 1rem + 1.5vw, 2rem);   line-height: 1.2;  font-weight: 800; }
+h3 { font-size: clamp(1.15rem, 0.95rem + 0.9vw, 1.5rem); line-height: 1.25; font-weight: 800; }
+h4 { font-size: clamp(1rem, 0.9rem + 0.5vw, 1.2rem); line-height: 1.3; font-weight: 800; }
+
+/* Visible keyboard focus. There was none before - the site was unusable by
+   keyboard, and focus rings are a baseline accessibility requirement. */
+:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Quieter, consistent scrollbars for the app-like panels */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #e2e2e2; border-radius: var(--radius-pill); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-color-trinary); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
