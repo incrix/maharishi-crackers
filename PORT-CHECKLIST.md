@@ -108,7 +108,45 @@ Anchor: `export async function sendOrderMails` at **line 232**.
 ### 1f. `app/admin/components/Pos.jsx` — label only
 - [ ] Line **356**: `label="Email (for the proforma)"` → `label="Email (optional)"`
 
+### 1g. ⚠️ Pricelist-aware editing — **fix this before shipping "Add product"**
+
+**This is a live bug in Sankamithra too, already pushed.** Not a porting artefact — fix it in both repos.
+
+POS bills on one of two lists: **PL1** (`price` MRP × product `discount`) or **PL2** (`mrp2`, no product
+discount, biller gives margin via a compounded **ExtraDiscount %**). But `Pos.jsx` *flattens* that choice
+into per-line `price`/`discount` before POSTing, and `createOrder` stores only the flattened result.
+Nothing records `priceList` or `extraDiscount` — once saved, the basis is unrecoverable.
+
+Consequence in the edit feature:
+
+| Action | Status |
+|---|---|
+| Change quantity | ✅ safe — recomputes from the stored `unitPrice` |
+| Remove a line | ✅ safe — no pricing involved |
+| **Add a product** | ❌ **mis-prices** — always PL1 catalogue values, ExtraDiscount ignored |
+
+A bill written on PL2 with 10% ExtraDiscount gets the new line at full PL1 MRP — silently overcharging.
+`SubstitutePicker` has the **same flaw** (it prices with `unitPrice(p)`); that one predates these commits.
+
+- [ ] **Extract shared helpers** — move `basisMrp`, `effDiscount`, `unitOf` out of `Pos.jsx`
+      (they are file-private there, which is why the pickers drifted) into `util/pricing.js`
+- [ ] **Record the basis** — `Pos.jsx` sends `priceList: list2 ? 2 : 1` and `extraDiscount: Number(extra) || 0`;
+      `createOrder` persists both. Website orders default to `priceList: 1, extraDiscount: 0`
+- [ ] **Show it** — chip in `OrderDetail` beside the Edit toggle: `Pricelist 2 · 10% extra`
+- [ ] **Price additions on the order's basis** — `AddItemPicker` receives `priceList`/`extraDiscount`
+      from the order and displays `unitOf(p, list2, extra)`; `onAdd` sends
+      `price: basisMrp(...)`, `discount: effDiscount(...)` instead of raw `p.price` / `p.discount`
+- [ ] **Fix `SubstitutePicker` the same way** (lines 40, 52, 61–62)
+- [ ] **Legacy orders** (no field recorded): show `Pricelist not recorded` and make the admin pick the
+      list before adding. Preferred over inferring from stored `mrp` vs `price`/`mrp2` — that is
+      ambiguous whenever a product's `mrp2` equals its `price`
+- [ ] Removal needs no pricing change — leave it alone
+
 ### Verify step 1
+- [ ] Write a bill on **Pricelist 2 with an ExtraDiscount**, then add a product to it via edit —
+      the new line must match the rate of every other line on that bill
+- [ ] Repeat on a **Pricelist 1** bill — new line carries the product discount, no extra
+- [ ] Open an order billed *before* this change — basis shows as not recorded, admin is asked to pick
 - [ ] Open an order → **Edit items** → checkboxes become steppers
 - [ ] Change a quantity → line total and order total update; check the history entry appears
 - [ ] Remove a line → history records `Removed <name>`

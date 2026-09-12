@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { collection, isDbConfigured } from "@/util/db/mongo";
 import * as fileStore from "./ordersStore.file";
+import { basisMrp, effDiscount, unitOf, orderBasis, inferBasis } from "@/util/pricing";
 import { getCatalogue } from "@/util/productsStore";
 
 /**
@@ -92,8 +93,8 @@ export async function getOrder(id) {
  * the same key is only ever written once, and a repeat returns the order that
  * already exists rather than a second bill with a second reference number.
  */
-export async function createOrder({ billingDetails, productList, emailSent, source = "online", note = "", clientRef = "" }) {
-  if (!useDb()) return fileStore.createOrder({ billingDetails, productList, emailSent, source, note });
+export async function createOrder({ billingDetails, productList, emailSent, source = "online", note = "", clientRef = "", extraDiscount = null }) {
+  if (!useDb()) return fileStore.createOrder({ billingDetails, productList, emailSent, source, note, extraDiscount });
 
   const key = String(clientRef || "").slice(0, 80);
   if (key) {
@@ -126,6 +127,10 @@ export async function createOrder({ billingDetails, productList, emailSent, sour
     // "online" = built by the customer at checkout, "pos" = billed at the
     // counter by staff. Both run the same packing and dispatch pipeline.
     source: source === "pos" ? "pos" : "online",
+    // The concession this bill was written with, so a line added to it later is
+    // priced the way the rest of it was. Null on a website order, which has no
+    // concession to remember. See util/pricing.js.
+    extraDiscount: source === "pos" ? Math.min(95, Math.max(0, Number(extraDiscount) || 0)) : null,
     emailSent: Boolean(emailSent),
     customer: {
       name: billingDetails?.name || "",
@@ -222,6 +227,17 @@ async function applyOnce(id, patch) {
     const product = catalogue.find((p) => String(p.id) === wanted);
     if (!product) throw new Error("That product is no longer in the catalogue");
 
+    /**
+     * Price the new line the way the rest of the bill was priced.
+     *
+     * A counter bill charges the MRP less the biller's ExtraDiscount, not the
+     * product's own discount - so pricing this off the catalogue alone charged
+     * a rate the bill had never used. Older counter bills predate the
+     * concession being stored, so it is read back off their own lines.
+     */
+    const recorded = orderBasis(prev);
+    const basis = recorded.recorded ? recorded : (inferBasis(prev) || recorded);
+
     const items = [...(next.items || prev.items || [])];
     const at = items.findIndex((it) => String(it.id) === wanted);
 
@@ -244,11 +260,11 @@ async function applyOnce(id, patch) {
         name: product.name,
         category: product.category,
         image: product.image?.[0] || null,
-        unitPrice: unit(product),
-        mrp: product.price,
-        discount: product.discount || 0,
+        unitPrice: unitOf(product, basis),
+        mrp: basisMrp(product),
+        discount: effDiscount(product, basis),
         count: qty,
-        total: Math.round(unit(product) * qty),
+        total: Math.round(unitOf(product, basis) * qty),
         packed: false,
         unavailable: false,
         substitute: null,

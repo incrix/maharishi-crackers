@@ -11,6 +11,7 @@ import SubstitutePicker from "./SubstitutePicker";
 import AddItemPicker from "./AddItemPicker";
 import OrderActions from "./OrderActions";
 import StatusChip from "./StatusChip";
+import { orderBasis, basisLabel, inferBasis } from "@/util/pricing";
 import { useState, useEffect, useMemo } from "react";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -27,6 +28,16 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
   // Hooks must run before any early return, or the hook order changes between
   // renders as soon as `order` goes null.
   const [swapFor, setSwapFor] = useState(null);
+
+  /**
+   * The terms this bill was written on, so a replacement is quoted at the rate
+   * the rest of the bill used. A counter bill from before the concession was
+   * stored has it read back off its own lines.
+   */
+  const basis = useMemo(() => {
+    const rec = orderBasis(order);
+    return rec.recorded ? rec : (inferBasis(order) || rec);
+  }, [order]);
   const [addOpen, setAddOpen] = useState(false);
 
   /**
@@ -145,6 +156,16 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
 
         <Divider />
 
+        {/* The terms anything added to this bill will be charged at. Stated
+            rather than left to be inferred: the biller is about to quote it. */}
+        <Chip
+          size="small"
+          label={basisLabel(basis)}
+          sx={{ alignSelf: "flex-start", height: 22, fontSize: 11, fontWeight: 800,
+                backgroundColor: basis.recorded || !basis.pos ? "var(--surface-muted)" : "var(--warning-soft, #fff4e5)",
+                color: basis.recorded || !basis.pos ? "var(--text-color-secondary)" : "#b26a00" }}
+        />
+
         <PackingList
           items={items}
           busy={busy}
@@ -167,6 +188,7 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
         <SubstitutePicker
           open={Boolean(swapFor)}
           item={swapFor}
+          basis={basis}
           onClose={() => setSwapFor(null)}
           onChoose={(sub) => { onPatch({ itemId: swapFor.id, substitute: sub }); setSwapFor(null); }}
         />

@@ -15,34 +15,10 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { assetUrl } from "@/util/config";
 import QtyStepper from "@/app/components/commerce/QtyStepper";
 import { useAdmin } from "../AdminContext";
+import { basisMrp, effDiscount, unitOf } from "@/util/pricing";
+import { BAR_H } from "./AdminShell";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
-/**
- * Counter pricing.
- *
- * There is one price list, shared with the website, and products carry no
- * discount of their own. Any concession on a bill is the biller's, given
- * through ExtraDiscount.
- *
- * That still resolves to a discount off an MRP, because it is the only shape
- * the server prices an order in. The server recomputes
- * from exactly these two numbers with the same formula, so what the biller sees
- * is what gets stored - and no price is ever taken from the browser, which
- * matters because the order endpoint is public.
- */
-const basisMrp = (p) => p.price;
-
-/**
- * The bill's only concession. There is a single price list, so a product
- * carries no discount of its own - ExtraDiscount is the whole of it.
- */
-const effDiscount = (p, extra) =>
-  Math.min(95, Math.max(0, Number(extra) || 0));
-
-const unitOf = (p, extra) => {
-  const m = basisMrp(p);
-  return Math.round(m - (m * effDiscount(p, extra)) / 100);
-};
 const PAGE = 40;
 
 /** Unique per bill attempt; crypto.randomUUID is absent on older Safari. */
@@ -150,7 +126,8 @@ export default function Pos() {
   const adjust = (id, delta) =>
     setLines((prev) => prev.map((l) => (l.id === id ? { ...l, count: l.count + delta } : l)).filter((l) => l.count > 0));
 
-  const net = (l) => unitOf(l, extra);
+  const posBasis = { pos: true, extra };
+  const net = (l) => unitOf(l, posBasis);
   const total = lines.reduce((a, l) => a + Math.round(net(l) * l.count), 0);
   const mrp = lines.reduce((a, l) => a + Math.round(basisMrp(l) * l.count), 0);
   const units = lines.reduce((a, l) => a + l.count, 0);
@@ -168,7 +145,7 @@ export default function Pos() {
       if (customer.email?.trim()) {
         const { buildProformaBase64 } = await import("@/util/proforma");
         invoice = await buildProformaBase64({ customer, items: lines.map((l) => ({
-          name: l.name, mrp: basisMrp(l), discount: effDiscount(l, extra), count: l.count,
+          name: l.name, mrp: basisMrp(l), discount: effDiscount(l, posBasis), count: l.count,
         })) }).catch(() => undefined);
       }
 
@@ -179,8 +156,13 @@ export default function Pos() {
         // them exactly as the counter screen showed them.
         body: JSON.stringify({
           source: "pos", note, billingDetails: customer, invoice, clientRef: billKey.current,
+          // What concession this bill was written with. The lines arrive
+          // already flattened to an MRP and one discount, and that is not
+          // reversible - without this, anything added to the bill later was
+          // priced as though the bill had carried no concession at all.
+          extraDiscount: Math.min(95, Math.max(0, Number(extra) || 0)),
           productList: lines.map((l) => ({
-            ...l, price: basisMrp(l), discount: effDiscount(l, extra),
+            ...l, price: basisMrp(l), discount: effDiscount(l, posBasis),
           })),
         }),
       });
@@ -325,24 +307,29 @@ export default function Pos() {
               )}
             </Stack>
 
-            {/* Sits under the products, where the bill is totted up. Products
-                carry no discount of their own, so this is the only place a
-                concession is given. */}
-            <TextField
-              size="small"
-              label="ExtraDiscount %"
-              value={extra}
-              onChange={(e) => setExtra(e.target.value.replace(/[^0-9.]/g, "").slice(0, 5))}
-              inputProps={{ inputMode: "decimal", "aria-label": "extra discount percent" }}
-              helperText={
-                Number(extra) > 0
-                  ? `${Number(extra)}% off every line`
-                  : "Optional — a concession for this bill only"
-              }
-              sx={fld}
-            />
           </Stack>
         )}
+
+        {/* The concession sits OUTSIDE the "is the bill empty" branch. It used
+            to live beside the line items, so on a phone - where the bill panel
+            is a sheet you only open once - the biller could not set it until
+            after ringing the first item up. */}
+          {/* Sits under the products, where the bill is totted up. Products
+              carry no discount of their own, so this is the only place a
+              concession is given. */}
+          <TextField
+            size="small"
+            label="ExtraDiscount %"
+            value={extra}
+            onChange={(e) => setExtra(e.target.value.replace(/[^0-9.]/g, "").slice(0, 5))}
+            inputProps={{ inputMode: "decimal", "aria-label": "extra discount percent" }}
+            helperText={
+              Number(extra) > 0
+                ? `${Number(extra)}% off every line`
+                : "Optional — a concession for this bill only"
+            }
+            sx={fld}
+          />
 
         <Divider />
 
@@ -514,7 +501,10 @@ export default function Pos() {
       {lastOrder && (
         <Stack direction="row" alignItems="center" gap={1}
           sx={{ position: "fixed", left: 0, right: 0, zIndex: 1150,
-                bottom: !wide && lines.length > 0 ? 64 : 0,
+                // Clears the bill bar, which itself clears the admin nav.
+                bottom: wide
+                  ? 0
+                  : { xs: `calc(${BAR_H}px + env(safe-area-inset-bottom) + 64px)`, md: 64 },
                 mx: { xs: 1.5, lg: 3 }, mb: 1.5,
                 p: 1.25, borderRadius: "var(--radius)",
                 backgroundColor: "var(--success-soft)", border: "1px solid #b6e7c9",
@@ -535,15 +525,19 @@ export default function Pos() {
 
       {/* Mobile: a standing summary so the running total is always visible
           without scrolling past the whole product grid. */}
-      {!wide && lines.length > 0 && (
+      {!wide && (
         <Stack
           direction="row" alignItems="center" justifyContent="space-between"
           onClick={() => setSheetOpen(true)}
           sx={{
             display: "flex",
-            position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1200,
+            // The admin's own bottom nav is fixed at bottom:0 with the same
+            // z-index on phones and was drawing straight over this bar - the
+            // bill was reachable in the DOM and invisible on the screen.
+            position: "fixed", left: 0, right: 0, zIndex: 1201,
+            bottom: { xs: `calc(${BAR_H}px + env(safe-area-inset-bottom))`, md: 0 },
             px: 2, py: 1.25, cursor: "pointer",
-            backgroundColor: "var(--primary-color)",
+            backgroundColor: lines.length ? "var(--primary-color)" : "var(--text-color)",
             boxShadow: "0 -4px 20px rgba(0,0,0,.18)",
           }}
         >
@@ -555,11 +549,15 @@ export default function Pos() {
             <Stack>
               <Typography fontSize={15} fontWeight={800} color="#fff">{inr(total)}</Typography>
               <Typography fontSize={10.5} color="#cfe4d4" fontWeight={600}>
-                {lines.length} {lines.length === 1 ? "line" : "lines"} · {units} units
+                {lines.length
+                  ? `${lines.length} ${lines.length === 1 ? "line" : "lines"} · ${units} units`
+                  : "No items yet · tap to set up the bill"}
               </Typography>
             </Stack>
           </Stack>
-          <Typography fontSize={13.5} fontWeight={800} color="#fff">Review bill →</Typography>
+          <Typography fontSize={13.5} fontWeight={800} color="#fff">
+            {lines.length ? "Review bill →" : "Open bill →"}
+          </Typography>
         </Stack>
       )}
 

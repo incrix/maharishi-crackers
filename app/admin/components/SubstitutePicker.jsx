@@ -5,10 +5,10 @@ import {
 } from "@mui/material";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useProducts } from "@/context/ProductContext";
 import { assetUrl } from "@/util/config";
-import { unitPrice } from "@/util/cart";
+import { basisMrp, unitOf } from "@/util/pricing";
 import QtyStepper from "@/app/components/commerce/QtyStepper";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -21,8 +21,12 @@ const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
  * can I put in the box that keeps this order roughly whole?" - not "what else
  * do we sell". The value difference is shown before anything is committed.
  */
-export default function SubstitutePicker({ open, item, onClose, onChoose }) {
+export default function SubstitutePicker({ open, item, onClose, onChoose, basis = { pos: false, extra: 0 } }) {
   const { productList } = useProducts();
+  // A replacement is charged on the same terms as the line it replaces - see
+  // util/pricing.js. Pricing it with unitPrice() applied the product discount
+  // and ignored the bill's ExtraDiscount, so a counter swap matched neither.
+  const priceOf = useCallback((p) => unitOf(p, basis), [basis]);
   const [query, setQuery] = useState("");
   const [sameCategory, setSameCategory] = useState(true);
   const [picked, setPicked] = useState(null);
@@ -37,7 +41,7 @@ export default function SubstitutePicker({ open, item, onClose, onChoose }) {
       .filter((p) => p.id !== item.id && p.countInStock > 0)
       .filter((p) => (sameCategory && !q ? p.category === item.category : true))
       .filter((p) => (q ? p.name.toLowerCase().includes(q) : true))
-      .map((p) => ({ p, price: unitPrice(p) }))
+      .map((p) => ({ p, price: priceOf(p) }))
       .sort((a, b) => {
         // closest achievable line value to what's being replaced
         const da = Math.abs(a.price * (item.count || 1) - targetValue);
@@ -45,11 +49,11 @@ export default function SubstitutePicker({ open, item, onClose, onChoose }) {
         return da - db;
       })
       .slice(0, 40);
-  }, [productList, item, query, sameCategory, targetValue]);
+  }, [productList, item, query, sameCategory, targetValue, priceOf]);
 
   if (!item) return null;
 
-  const newValue = picked ? unitPrice(picked) * qty : 0;
+  const newValue = picked ? priceOf(picked) * qty : 0;
   const diff = newValue - targetValue;
 
   const choose = () => {
@@ -58,8 +62,8 @@ export default function SubstitutePicker({ open, item, onClose, onChoose }) {
       id: picked.id,
       name: picked.name,
       image: picked.image?.[0] || null,
-      unitPrice: unitPrice(picked),
-      mrp: picked.price,
+      unitPrice: priceOf(picked),
+      mrp: basisMrp(picked),
       count: qty,
     });
     reset();
