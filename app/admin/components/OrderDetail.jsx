@@ -9,9 +9,10 @@ import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
 import PackingList from "./PackingList";
 import SubstitutePicker from "./SubstitutePicker";
 import AddItemPicker from "./AddItemPicker";
+import BillingBasis from "./BillingBasis";
 import OrderActions from "./OrderActions";
 import StatusChip from "./StatusChip";
-import { orderBasis, basisLabel, inferBasis } from "@/util/pricing";
+import { orderBasis, inferBasis } from "@/util/pricing";
 import { useState, useEffect, useMemo } from "react";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -39,6 +40,25 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
     return rec.recorded ? rec : (inferBasis(order) || rec);
   }, [order]);
   const [addOpen, setAddOpen] = useState(false);
+  // null = follow the bill. A typed value moves only what is added next.
+  const [chosenExtra, setChosenExtra] = useState(null);
+
+  /**
+   * What a line added now will be charged at.
+   *
+   * Follows the bill until the biller moves it, which is why `chosenExtra`
+   * starts null rather than at the bill's figure - "unset" and "deliberately
+   * set to the same number" need to stay distinguishable.
+   */
+  const editBasis = useMemo(
+    () => ({
+      ...basis,
+      extra: chosenExtra == null
+        ? (basis.extra || 0)
+        : Math.min(95, Math.max(0, Number(chosenExtra) || 0)),
+    }),
+    [basis, chosenExtra]
+  );
 
   /**
    * Which lines the packer has ticked off, held here rather than in the order.
@@ -156,14 +176,14 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
 
         <Divider />
 
-        {/* The terms anything added to this bill will be charged at. Stated
-            rather than left to be inferred: the biller is about to quote it. */}
-        <Chip
-          size="small"
-          label={basisLabel(basis)}
-          sx={{ alignSelf: "flex-start", height: 22, fontSize: 11, fontWeight: 800,
-                backgroundColor: basis.recorded || !basis.pos ? "var(--surface-muted)" : "var(--warning-soft, #fff4e5)",
-                color: basis.recorded || !basis.pos ? "var(--text-color-secondary)" : "#b26a00" }}
+        {/* How the bill was written, and what the next line will cost. A single
+            chip carried both, which hid the fact that they can differ. */}
+        <BillingBasis
+          primary={basis}
+          extra={chosenExtra == null ? String(basis.extra || 0) : chosenExtra}
+          onExtra={setChosenExtra}
+          onReprice={(r) => { onPatch({ reprice: r }); setChosenExtra(null); }}
+          busy={busy}
         />
 
         <PackingList
@@ -181,6 +201,7 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
         <AddItemPicker
           open={addOpen}
           order={order}
+          basis={editBasis}
           onClose={() => setAddOpen(false)}
           onAdd={(payload) => onPatch({ addItem: payload })}
         />
@@ -188,7 +209,7 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
         <SubstitutePicker
           open={Boolean(swapFor)}
           item={swapFor}
-          basis={basis}
+          basis={editBasis}
           onClose={() => setSwapFor(null)}
           onChoose={(sub) => { onPatch({ itemId: swapFor.id, substitute: sub }); setSwapFor(null); }}
         />

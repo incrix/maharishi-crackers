@@ -8,7 +8,7 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import { useMemo, useState, useEffect } from "react";
 import { useProducts } from "@/context/ProductContext";
 import { assetUrl } from "@/util/config";
-import { unitPrice } from "@/util/cart";
+import { unitOf } from "@/util/pricing";
 import QtyStepper from "@/app/components/commerce/QtyStepper";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -23,7 +23,7 @@ const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
  * Products already on the order are shown as such - picking one raises that
  * line rather than creating a duplicate, which is what the server does too.
  */
-export default function AddItemPicker({ open, order, onClose, onAdd }) {
+export default function AddItemPicker({ open, order, basis, onClose, onAdd }) {
   const { productList } = useProducts();
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState(null);
@@ -47,7 +47,8 @@ export default function AddItemPicker({ open, order, onClose, onAdd }) {
 
   if (!order) return null;
 
-  const price = picked ? unitPrice(picked) : 0;
+  // Matches what the server will store: see util/pricing.js.
+  const price = picked ? unitOf(picked, basis) : 0;
   const addedValue = price * qty;
   const newTotal = (order.total || 0) + addedValue;
 
@@ -114,7 +115,7 @@ export default function AddItemPicker({ open, order, onClose, onAdd }) {
                   </Stack>
                 </Stack>
                 <Typography fontSize={13.5} fontWeight={800} color="var(--text-color)">
-                  {inr(unitPrice(p))}
+                  {inr(unitOf(p, basis))}
                 </Typography>
               </Stack>
             );

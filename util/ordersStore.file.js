@@ -218,6 +218,10 @@ export async function updateOrder(id, patch) {
      * left the catalogue is left untouched and named in the history entry.
      */
     if (patch.reprice) {
+      // Counter bills only - see ordersStore.js for why.
+      if (prev.source !== "pos") {
+        throw new Error("Only a counter bill carries a concession - a website order is charged at website rates");
+      }
       const extra = Math.min(95, Math.max(0, Number(patch.reprice.extraDiscount) || 0));
       const basis = { pos: true, extra };
       const { products: catalogue } = await getCatalogue();
