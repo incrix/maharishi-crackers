@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/util/admin/auth";
 import { getSetting, setSetting } from "@/util/settingsStore";
 import { collection, isDbConfigured } from "@/util/db/mongo";
-import { PRICE_LIST_FALLBACK } from "@/util/config";
+import { PRICE_LIST_FALLBACK, absoluteAssetUrl } from "@/util/config";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +32,10 @@ export async function GET(request) {
   }
 
   // Nothing uploaded yet: fall back to the copy that shipped with the site.
-  if (!current) return Response.redirect(PRICE_LIST_FALLBACK, 302);
+  if (!current) return Response.redirect(absoluteAssetUrl(PRICE_LIST_FALLBACK, request.url), 302);
 
   const doc = await (await collection("media")).findOne({ name: DOC });
-  if (!doc) return Response.redirect(PRICE_LIST_FALLBACK, 302);
+  if (!doc) return Response.redirect(absoluteAssetUrl(PRICE_LIST_FALLBACK, request.url), 302);
 
   return new Response(doc.data.buffer ?? doc.data, {
     headers: {

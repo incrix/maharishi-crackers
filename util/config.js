@@ -16,6 +16,28 @@ export const ASSET_BASE = (
   process.env.NEXT_PUBLIC_ASSET_BASE || "/database"
 ).replace(/\/$/, "");
 
+/**
+ * Makes an asset URL absolute.
+ *
+ * ASSET_BASE is allowed to be site-relative ("/database") - the comment above
+ * recommends it for local development - but `fetch()` and `Response.redirect()`
+ * both reject a relative URL. Without this the catalogue seed threw
+ * "Failed to parse URL" and /api/price-list answered 500.
+ *
+ * `origin` should be the incoming `request.url` where there is one, so the
+ * resolved host matches whatever the caller reached; NEXT_PUBLIC_SITE_URL is the
+ * fallback for code with no request in scope. Throws rather than guessing: a
+ * silently wrong host is harder to spot than a failed read.
+ */
+export function absoluteAssetUrl(url, origin) {
+  if (/^https?:\/\//.test(url)) return url;
+  const base = origin || process.env.NEXT_PUBLIC_SITE_URL || "";
+  if (!base) {
+    throw new Error(`cannot resolve "${url}" without an origin - set NEXT_PUBLIC_SITE_URL`);
+  }
+  return new URL(url, base).href;
+}
+
 /** The catalogue seed, read once by the product store to populate itself. */
 export const PRODUCT_SEED_URL = `${ASSET_BASE}/SortedJSON/productData.json`;
 

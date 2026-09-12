@@ -1,5 +1,5 @@
 import { collection, isDbConfigured } from "@/util/db/mongo";
-import { PRODUCT_SEED_URL } from "@/util/config";
+import { PRODUCT_SEED_URL, absoluteAssetUrl } from "@/util/config";
 import * as fileStore from "./productsStore.file";
 
 /**
@@ -46,7 +46,7 @@ async function seedIfEmpty() {
   const col = await products();
   if (await col.countDocuments({}, { limit: 1 })) return;
 
-  const res = await fetch(PRODUCT_SEED_URL, { cache: "no-store" });
+  const res = await fetch(absoluteAssetUrl(PRODUCT_SEED_URL), { cache: "no-store" });
   if (!res.ok) throw new Error(`catalogue seed responded ${res.status}`);
   const raw = await res.json();
   if (!Array.isArray(raw) || !raw.length) throw new Error("catalogue seed was empty");
