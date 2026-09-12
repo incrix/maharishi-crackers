@@ -2,6 +2,7 @@ import { updateOrder, getOrder } from "@/util/ordersStore";
 import { requireAdmin } from "@/util/admin/auth";
 import { withRetry } from "@/util/db/mongo";
 import { sendCustomerMail } from "@/util/sendMail";
+import { sendCustomerWhatsApp } from "@/util/sendWhatsApp";
 
 export const dynamic = "force-dynamic";
 
@@ -45,10 +46,12 @@ export async function PATCH(request, { params }) {
   // Tell the customer when the status genuinely moved, so the shop never has to
   // remember to. A mail failure must not fail the status change itself.
   let mail = null;
+  let whatsapp = null;
   const kind = NOTIFY_ON[order.status];
   const changed = before && before.status !== order.status;
+  const notify = changed && kind && patch.notify !== false;
 
-  if (changed && kind && order.customer?.email && patch.notify !== false) {
+  if (notify && order.customer?.email) {
     try {
       // `invoice` is the re-issued proforma from the panel, reflecting any
       // substitutions made while packing.
@@ -60,5 +63,17 @@ export async function PATCH(request, { params }) {
     }
   }
 
-  return Response.json({ order, mail });
+  // Separate condition, not an else: plenty of counter customers give a phone
+  // and no email, and they are exactly the ones a WhatsApp update serves.
+  if (notify && order.customer?.phone) {
+    try {
+      const res = await sendCustomerWhatsApp({ order, kind });
+      whatsapp = res?.skipped ? { sent: false, kind, skipped: res.skipped } : { sent: true, kind };
+    } catch (err) {
+      console.error(`status whatsapp for ${order.ref} failed:`, err.message);
+      whatsapp = { sent: false, kind, error: err.message };
+    }
+  }
+
+  return Response.json({ order, mail, whatsapp });
 }

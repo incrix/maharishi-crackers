@@ -2,6 +2,7 @@
 import { Stack, Box, Typography, Button, Menu, MenuItem, CircularProgress, Divider } from "@mui/material";
 import MailOutlineRoundedIcon from "@mui/icons-material/MailOutlineRounded";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
+import { toE164 } from "@/util/sendWhatsApp";
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import PhoneRoundedIcon from "@mui/icons-material/PhoneRounded";
 import PrintRoundedIcon from "@mui/icons-material/PrintRounded";
@@ -201,7 +202,7 @@ export default function OrderActions({ order, onToast }) {
           <MenuItem
             key={t.key}
             onClick={() => {
-              window.open(`https://wa.me/91${digits(c.phone)}?text=${encodeURIComponent(t.text)}`, "_blank", "noopener");
+              window.open(`https://wa.me/${toE164(c.phone) || digits(c.phone)}?text=${encodeURIComponent(t.text)}`, "_blank", "noopener");
               setWaAnchor(null);
             }}
             sx={{ fontSize: 13.5, fontWeight: 600 }}

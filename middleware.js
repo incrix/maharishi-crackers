@@ -24,7 +24,16 @@ const PROTECTED = [
  */
 const ADMIN_ONLY_SUBPATHS = ["/api/orders/"];
 
+/**
+ * Carved out of the rule above: the proforma is fetched by WhatsApp from Meta's
+ * servers to attach to a template message, where no admin cookie exists. Its
+ * protection is the unguessable order UUID in the path, not a session - the
+ * same trade a payment-receipt link makes.
+ */
+const PUBLIC_ORDER_SUBPATHS = [/^\/api\/orders\/[^/]+\/proforma\/?$/];
+
 function needsAuth(pathname, method) {
+  if (PUBLIC_ORDER_SUBPATHS.some((re) => re.test(pathname))) return false;
   if (ADMIN_ONLY_SUBPATHS.some((p) => pathname.startsWith(p))) return true;
   for (const rule of PROTECTED) {
     if (pathname === rule.path) {

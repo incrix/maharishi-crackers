@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/util/admin/auth";
 import { dbDiagnostics } from "@/util/db/mongo";
 import { mailDiagnostics } from "@/util/sendMail";
+import { whatsAppDiagnostics } from "@/util/sendWhatsApp";
 import { PRODUCT_SEED_URL, ASSET_BASE } from "@/util/config";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,9 @@ export async function GET() {
     storage: db.configured ? "mongodb" : "filesystem (will fail on serverless)",
     db,
     mail: { ok: mail.ok, stage: mail.stage, host: mail.config?.host, user: mail.config?.user, error: mail.error },
+    // Not folded into `ok`: WhatsApp is optional, and a shop without it is a
+    // working shop. It reports itself so the state is never a guess.
+    whatsapp: whatsAppDiagnostics(),
     assets,
     site: process.env.NEXT_PUBLIC_SITE_URL || "(NEXT_PUBLIC_SITE_URL not set — canonicals fall back to localhost)",
   });
