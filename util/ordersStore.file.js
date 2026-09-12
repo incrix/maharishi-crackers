@@ -210,6 +210,42 @@ export async function updateOrder(id, patch) {
     }
 
     /**
+     * Restate the whole bill on a new concession. Mirrors ordersStore.js.
+     *
+     * One price list, so the only thing that moves is the ExtraDiscount. Lines
+     * are recomputed from the catalogue, never scaled from stored figures -
+     * scaling compounds the rounding already in them. A line whose product has
+     * left the catalogue is left untouched and named in the history entry.
+     */
+    if (patch.reprice) {
+      const extra = Math.min(95, Math.max(0, Number(patch.reprice.extraDiscount) || 0));
+      const basis = { pos: true, extra };
+      const { products: catalogue } = await getCatalogue();
+      const byId = new Map(catalogue.map((p) => [String(p.id), p]));
+
+      const missing = [];
+      next.items = (next.items || prev.items || []).map((line) => {
+        const product = byId.get(String(line.id));
+        if (!product) { missing.push(line.name); return line; }
+        const unitPrice = unitOf(product, basis);
+        return {
+          ...line,
+          mrp: basisMrp(product),
+          discount: effDiscount(product, basis),
+          unitPrice,
+          total: Math.round(unitPrice * (line.count || 0)),
+        };
+      });
+
+      next.extraDiscount = extra;
+      next.history = [...(next.history || []), {
+        at: next.updatedAt,
+        event: `Repriced as a counter bill${extra > 0 ? ` with ${extra}% ExtraDiscount` : " with no concession"}`
+          + (missing.length ? ` (left unchanged, no longer stocked: ${missing.join(", ")})` : ""),
+      }];
+    }
+
+    /**
      * Add a product to an existing bill.
      *
      * Mirrors ordersStore.js deliberately, including reading the price from the

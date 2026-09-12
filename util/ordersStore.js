@@ -211,6 +211,49 @@ async function applyOnce(id, patch) {
   if (typeof patch.emailSent === "boolean") next.emailSent = patch.emailSent;
 
   /**
+   * Restate the whole bill on a new concession.
+   *
+   * There is one price list, so the only thing that can move is the counter's
+   * ExtraDiscount - hence `{ extraDiscount }` and no list to choose.
+   *
+   * Every line is recomputed from the catalogue rather than scaled from its
+   * stored figures. Scaling would compound the rounding already baked into
+   * them, and after two changes of mind the bill no longer matches any rate the
+   * shop actually charges.
+   *
+   * A line whose product has left the catalogue is left exactly as it is and
+   * named in the history entry. Guessing at a price for it would misstate what
+   * the customer owes, and dropping it silently would be worse.
+   */
+  if (patch.reprice) {
+    const extra = Math.min(95, Math.max(0, Number(patch.reprice.extraDiscount) || 0));
+    const basis = { pos: true, extra };
+    const { products: catalogue } = await getCatalogue();
+    const byId = new Map(catalogue.map((p) => [String(p.id), p]));
+
+    const missing = [];
+    next.items = (next.items || prev.items || []).map((line) => {
+      const product = byId.get(String(line.id));
+      if (!product) { missing.push(line.name); return line; }
+      const unitPrice = unitOf(product, basis);
+      return {
+        ...line,
+        mrp: basisMrp(product),
+        discount: effDiscount(product, basis),
+        unitPrice,
+        total: Math.round(unitPrice * (line.count || 0)),
+      };
+    });
+
+    next.extraDiscount = extra;
+    next.history = [...(next.history || []), {
+      at: next.updatedAt,
+      event: `Repriced as a counter bill${extra > 0 ? ` with ${extra}% ExtraDiscount` : " with no concession"}`
+        + (missing.length ? ` (left unchanged, no longer stocked: ${missing.join(", ")})` : ""),
+    }];
+  }
+
+  /**
    * Add a product to an existing bill.
    *
    * The price is read from the catalogue here, never taken from the request -
