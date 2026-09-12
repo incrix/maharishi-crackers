@@ -231,6 +231,20 @@ export default function Pos() {
    * screen the fixed-height customer fields and totals ate the space and the
    * items collapsed to nothing — the sheet looked like it only held a button.
    */
+  /**
+   * Why the bill cannot be created yet, or null when it can.
+   *
+   * Held as a reason rather than a boolean so the button can say what is
+   * missing instead of just sitting inert. Lines first, since an empty bill is
+   * the more obvious gap; createBill still re-checks, because this only mirrors
+   * what it enforces.
+   */
+  const blocker = !lines.length
+    ? "Add at least one item to the bill"
+    : !customer.name.trim()
+      ? "Enter the customer's name to finish the bill"
+      : null;
+
   const billPanel = (
     <Stack sx={{ width: "100%", height: "100%", minHeight: 0 }}>
       {/* Only the dismiss control lives up here. "Clear" used to sit beside it,
@@ -367,14 +381,36 @@ export default function Pos() {
           <Typography fontSize={22} fontWeight={800} color="var(--text-color)">{inr(total)}</Typography>
         </Stack>
 
-        <Button onClick={createBill} disabled={saving || !lines.length}
-          startIcon={saving ? <CircularProgress size={16} sx={{ color: "#fff" }} /> : null}
-          sx={{ textTransform: "none", fontWeight: 800, fontSize: 15, py: 1.25, borderRadius: "var(--radius)",
-                color: "#fff", backgroundColor: "var(--primary-color)",
-                "&:hover": { backgroundColor: "var(--primary-dark)" },
-                "&.Mui-disabled": { backgroundColor: "#9dbfa6", color: "#fff" } }}>
-          {saving ? "Creating..." : `Create bill · ${inr(total)}`}
-        </Button>
+        {/* Says what is missing before the button is pressed. It used to look
+            ready whenever there was a line on the bill and then refuse with a
+            toast, which on a phone means tapping, losing the keyboard and
+            hunting for the field that was wrong. */}
+        {blocker && !saving && (
+          <Typography fontSize={11.5} fontWeight={700} color="#b26a00">
+            {blocker}
+          </Typography>
+        )}
+
+        <Stack direction="row" gap={1}>
+          {/* On a phone the sheet covers the grid, so getting back to the
+              products needed the small X in the corner. */}
+          {!wide && (
+            <Button onClick={() => setSheetOpen(false)}
+              sx={{ flexShrink: 0, textTransform: "none", fontWeight: 800, fontSize: 14, py: 1.25, px: 2,
+                    borderRadius: "var(--radius)", color: "var(--primary-color)",
+                    border: "1.5px solid var(--primary-border)" }}>
+              Add items
+            </Button>
+          )}
+          <Button onClick={createBill} disabled={Boolean(blocker) || saving}
+            startIcon={saving ? <CircularProgress size={16} sx={{ color: "#fff" }} /> : null}
+            sx={{ flex: 1, textTransform: "none", fontWeight: 800, fontSize: 15, py: 1.25, borderRadius: "var(--radius)",
+                  color: "#fff", backgroundColor: "var(--primary-color)",
+                  "&:hover": { backgroundColor: "var(--primary-dark)" },
+                  "&.Mui-disabled": { backgroundColor: "#9dbfa6", color: "#fff" } }}>
+            {saving ? "Creating..." : `Create bill · ${inr(total)}`}
+          </Button>
+        </Stack>
       </Stack>
     </Stack>
   );
@@ -524,8 +560,14 @@ export default function Pos() {
       )}
 
       {/* Mobile: a standing summary so the running total is always visible
-          without scrolling past the whole product grid. */}
-      {!wide && (
+          without scrolling past the whole product grid.
+
+          Hidden while the sheet is open. This bar is what opens the sheet, and
+          at zIndex 1201 it drew over MUI's Drawer (1200) - so "Review bill" sat
+          on top of the bill being reviewed, immediately above "Create bill",
+          leaving two competing calls to action and no clue which one finished
+          the sale. */}
+      {!wide && !sheetOpen && (
         <Stack
           direction="row" alignItems="center" justifyContent="space-between"
           onClick={() => setSheetOpen(true)}
