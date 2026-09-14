@@ -1,7 +1,7 @@
 "use client";
 import { Text, View, Image } from "@react-pdf/renderer";
 import Logo from "@/public/images/logo.png";
-import { BUSINESS, SITE_URL } from "@/util/site";
+import { BUSINESS, SITE_URL, formatAddress } from "@/util/site";
 
 export default function RenderInvoiceHeader() {
   return (
@@ -31,7 +31,7 @@ export default function RenderInvoiceHeader() {
             fontFamily: "Lato",
           }}
         >
-          {`${BUSINESS.office.street}, ${BUSINESS.office.locality} ${BUSINESS.office.postalCode}.`}
+          {formatAddress()}
         </Text>
         <View style={{ flexDirection: "row", gap: 10 }}>
           <Text

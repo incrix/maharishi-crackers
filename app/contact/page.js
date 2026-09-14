@@ -6,9 +6,7 @@ import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
 import Faq from "@/app/components/Faq";
 import PageHero, { Section, Card, Grid } from "@/app/components/pages/PageHero";
-import {
-  SITE_URL, BUSINESS, KEYWORDS, JsonLd, breadcrumbSchema, faqSchema, localBusinessSchema,
-} from "@/util/site";
+import { SITE_URL, BUSINESS, KEYWORDS, JsonLd, breadcrumbSchema, faqSchema, localBusinessSchema, formatAddress } from "@/util/site";
 
 export const metadata = {
   title: "Contact — Reach the Shop",
@@ -135,7 +133,7 @@ export default function ContactPage() {
           />
           <Channel
             icon={<PlaceOutlinedIcon />} label="Shop" ready={hasAddress}
-            value={hasAddress ? `${BUSINESS.office.street}, ${BUSINESS.office.locality} ${BUSINESS.office.postalCode}` : null}
+            value={hasAddress ? formatAddress() : null}
             note="Buy any quantity over the counter — no minimum, unlike online orders."
           />
         </Grid>

@@ -45,6 +45,25 @@ export const hasContact = () =>
 export const hasAddress = () =>
   !isPlaceholder(BUSINESS.office?.street) && !isPlaceholder(BUSINESS.office?.postalCode);
 
+/**
+ * The address as one string, for anywhere that prints it rather than marking it
+ * up - the footer, the contact card, the invoice and the delivery challan.
+ *
+ * It lived as five slightly different template literals across those files, so
+ * the same address read differently depending on where you saw it and the
+ * district appeared nowhere. `multiline` is for the PDFs, which set it in a
+ * narrow column. Falls back to town and state while the street is unset, so a
+ * half-filled block never prints "TODO" on a document.
+ */
+export const formatAddress = ({ multiline = false } = {}) => {
+  const o = BUSINESS.office || {};
+  if (!hasAddress()) return [o.locality, o.region].filter(Boolean).join(", ");
+  const town = [o.locality, o.district && `${o.district} District`].filter(Boolean).join(", ");
+  return [o.street, town, `${o.region} ${o.postalCode}`]
+    .filter(Boolean)
+    .join(multiline ? "\n" : ", ");
+};
+
 export const BUSINESS = {
   name: "Maharishi Crackers",
   // TODO(abishek): confirm the registered legal entity name — may differ from
@@ -61,17 +80,25 @@ export const BUSINESS = {
   whatsapp: "910000000000",
   // TODO(abishek): Maharishi's public enquiry address.
   email: "TODO@example.invalid",
-  // TODO(abishek): Maharishi's shop/office address. Left blank rather than
-  // guessed — a wrong address breaks local search and the PDF documents.
+  /**
+   * The principal place of business, as recorded in the partnership deed.
+   *
+   * Note it is in Sattur taluk, not Sivakasi - see the district and the 626203
+   * postcode. Most of the site's copy still says Sivakasi, which is the trade
+   * region rather than this address. That is flagged rather than papered over:
+   * this block is what feeds local search and what prints on the challan.
+   */
   office: {
-    street: "TODO",
-    locality: "Sivakasi",
+    street: "D.No. 9/62/H, West Street, K. Meenatchipuram, Kanmaisurangudi, O. Mettupatti Post",
+    locality: "Sattur",
+    district: "Virudhunagar",
     region: "Tamil Nadu",
-    postalCode: "TODO",
+    postalCode: "626203",
     country: "IN",
   },
-  // TODO(abishek): coordinates of Maharishi's premises (Google Maps -> right
-  // click -> copy lat/long). Currently Sivakasi town centre, not the shop.
+  // TODO(abishek): coordinates of the address above (Google Maps -> right click
+  // -> copy lat/long). These still point at Sivakasi town centre, roughly 20km
+  // from the registered address, so the map pin is in the wrong town.
   geo: { latitude: 9.4499, longitude: 77.7983 },
   // TODO(abishek): confirm trading hours.
   openingHours: "Mo-Sa 09:00-19:00",

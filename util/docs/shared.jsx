@@ -1,7 +1,7 @@
 "use client";
 import { Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import Logo from "@/public/images/logo.png";
-import { BUSINESS } from "@/util/site";
+import { BUSINESS, formatAddress } from "@/util/site";
 
 /**
  * Pieces shared by the packing list and the delivery challan, so the two
@@ -50,7 +50,7 @@ export function DocHeader({ title, subtitle }) {
           <View style={{ gap: 2 }}>
             <Text style={s.brandName}>{BUSINESS.name}</Text>
             <Text style={s.small}>
-              {BUSINESS.office.street}, {BUSINESS.office.locality} {BUSINESS.office.postalCode}
+              {formatAddress()}
             </Text>
             <Text style={s.small}>
               {BUSINESS.phone[0]} · {BUSINESS.email}

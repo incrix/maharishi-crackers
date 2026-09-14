@@ -1,7 +1,7 @@
 "use client";
 import { Document, Page, Text, View, Font } from "@react-pdf/renderer";
 import { s, DocHeader, Field, packedLines, inr, when, MUTED, INK, LINE } from "./shared";
-import { BUSINESS } from "@/util/site";
+import { BUSINESS, formatAddress } from "@/util/site";
 
 /**
  * The document that travels with the goods.
@@ -31,8 +31,7 @@ export default function DeliveryChallanDoc({ order }) {
           <Field label="Consignor">
             <Text style={{ fontFamily: "Lato Bold", fontSize: 10 }}>{BUSINESS.name}</Text>
             <Text style={{ color: MUTED, marginTop: 2, lineHeight: 1.5 }}>
-              {BUSINESS.office.street}, {BUSINESS.office.locality},{"\n"}
-              {BUSINESS.office.region} — {BUSINESS.office.postalCode}
+              {formatAddress({ multiline: true })}
             </Text>
             <Text style={{ color: MUTED }}>{BUSINESS.phone[0]}</Text>
           </Field>

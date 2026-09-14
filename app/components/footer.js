@@ -4,7 +4,7 @@ import Link from "next/link";
 import PhoneRoundedIcon from "@mui/icons-material/PhoneRounded";
 import MailOutlineRoundedIcon from "@mui/icons-material/MailOutlineRounded";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
-import { BUSINESS, CERTIFICATIONS_VERIFIED, isPlaceholder, hasAddress } from "@/util/site";
+import { BUSINESS, CERTIFICATIONS_VERIFIED, isPlaceholder, hasAddress, formatAddress } from "@/util/site";
 import logo from "../../public/images/logo-mark.png";
 import green from "../../public/images/green.png";
 import iso from "../../public/images/iso.png";
@@ -101,7 +101,7 @@ export default function Footer() {
               )}
               {hasAddress() ? (
                 <ContactLine icon={<PlaceOutlinedIcon sx={ic} />}>
-                  {`${BUSINESS.office.street}, ${BUSINESS.office.locality}, ${BUSINESS.office.region} ${BUSINESS.office.postalCode}`}
+                  {formatAddress()}
                 </ContactLine>
               ) : (
                 <ContactLine icon={<PlaceOutlinedIcon sx={ic} />}>
