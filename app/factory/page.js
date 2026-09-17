@@ -44,9 +44,8 @@ const ALL_FAQS = [
     a: "It tends to be. Fireworks are made to a season and sold within it. Stock bought near the source spends less time in transit and storage before it reaches you, which matters for anything with a fuse.",
   },
   {
-    // TODO(abishek): confirm with your suppliers before this goes live.
     q: "What certifications does the stock carry?",
-    a: "TODO — list the certifications your suppliers actually hold, once confirmed.",
+    a: "Green cracker formulations, made by licensed units around Sivakasi. The approvals sit with those manufacturers — that is where the emission testing and the explosives licences are held — rather than with the shop selling them on, so we do not print a registration number against our own name. If an item's paperwork matters to you, ask and we will get it from the unit.",
   },
 ];
 

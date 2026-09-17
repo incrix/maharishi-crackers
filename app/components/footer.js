@@ -4,10 +4,8 @@ import Link from "next/link";
 import PhoneRoundedIcon from "@mui/icons-material/PhoneRounded";
 import MailOutlineRoundedIcon from "@mui/icons-material/MailOutlineRounded";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
-import { BUSINESS, CERTIFICATIONS_VERIFIED, isPlaceholder, hasAddress, formatAddress } from "@/util/site";
+import { BUSINESS, GREEN_CRACKERS_BADGE, isPlaceholder, hasAddress, formatAddress } from "@/util/site";
 import logo from "../../public/images/logo-mark.png";
-import green from "../../public/images/green.png";
-import iso from "../../public/images/iso.png";
 
 /**
  * Site footer.
@@ -128,15 +126,19 @@ export default function Footer() {
             </Box>
           </FooterCol>
 
-          {/* The whole column goes, not just the badges - a "Certified"
-              heading with nothing under it reads as a broken layout.
-              See CERTIFICATIONS_VERIFIED in util/site.js */}
-          {CERTIFICATIONS_VERIFIED && (
-            <FooterCol title="Certified">
-              <Stack direction="row" gap={1.5} flexWrap="wrap">
-                <Box component="img" src={green.src} alt="Green certified" sx={{ width: 78 }} />
-                <Box component="img" src={iso.src} alt="ISO certified" sx={{ width: 78 }} />
-              </Stack>
+          {/* Titled for what it is. "Certified" would be the wrong word: the
+              badge names no certifying body and cites no certificate number.
+              See GREEN_CRACKERS_BADGE in util/site.js */}
+          {GREEN_CRACKERS_BADGE && (
+            <FooterCol title="Green crackers">
+              <Box
+                component="img"
+                src="/images/green-crackers.svg"
+                alt="Green crackers"
+                width={78}
+                height={78}
+                sx={{ width: 78, height: 78 }}
+              />
             </FooterCol>
           )}
         </Box>

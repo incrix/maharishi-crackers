@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Green crackers badge.
+
+  Drawn here rather than reusing the inherited green.png, which carried a
+  CSIR-NEERI mark and the certificate number NE/TN/788-01/2023 - another
+  party's registration, which must not be republished under this shop's name.
+
+  So this badge carries no certifying body and no certificate number. It states
+  what the shop sells, which is the shop's own claim to make, and nothing about
+  who accredited it.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160"
+     role="img" aria-label="Green crackers">
+  <circle cx="80" cy="80" r="78" fill="#1a4d2e"/>
+  <circle cx="80" cy="80" r="69" fill="none" stroke="#e8c46a" stroke-width="1.6"/>
+  <circle cx="80" cy="80" r="60" fill="#fbfaf6"/>
+
+  <!-- leaf sprig -->
+  <g transform="translate(80 49)">
+    <path d="M0 14C0 4 6-4 14-8 12 3 7 11 0 14Z" fill="#2d7a4a"/>
+    <path d="M0 14C0 4-6-4-14-8-12 3-7 11 0 14Z" fill="#1a4d2e"/>
+    <path d="M0 15V4" stroke="#1a4d2e" stroke-width="2.2" stroke-linecap="round"/>
+  </g>
+
+  <text x="80" y="95" text-anchor="middle" fill="#1a4d2e"
+        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="25" font-weight="700" letter-spacing="0.5">GREEN</text>
+  <text x="80" y="115" text-anchor="middle" fill="#2d7a4a"
+        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="12.5" font-weight="700" letter-spacing="2.4">CRACKERS</text>
+  <path d="M52 124h56" stroke="#e8c46a" stroke-width="1.6" stroke-linecap="round"/>
+</svg>

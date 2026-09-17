@@ -13,17 +13,21 @@ export const SITE_URL = (
 ).replace(/\/$/, "");
 
 /**
- * Whether Maharishi's supplier certifications have been verified.
+ * Whether to show the green crackers badge.
  *
- * The green-certified and ISO 9001:2015 badges were inherited from the
- * inherited build. Displaying a certification mark the business cannot
- * evidence is a factual claim about a regulated product, so the badges and the
- * copy that references them stay hidden until this is deliberately switched on.
+ * This is the shop's own statement about what it sells, and it shows no
+ * certifying body and no certificate number - which is the distinction that
+ * matters. The inherited badge did carry both: a CSIR-NEERI mark and the
+ * registration NE/TN/788-01/2023, belonging to the sister shop's supplier.
+ * Republishing another party's registration is a false accreditation claim
+ * however true the underlying product claim is, so that image was deleted
+ * rather than reused.
  *
- * TODO(abishek): set to true once you confirm the certifications Maharishi's
- * suppliers actually hold.
+ * The ISO 9001:2015 badge is gone with it. A quality-management certification
+ * is held by a named organisation against an audited scope; there is nothing
+ * to point at here.
  */
-export const CERTIFICATIONS_VERIFIED = false;
+export const GREEN_CRACKERS_BADGE = true;
 
 /**
  * True when a BUSINESS value is still a placeholder rather than a real detail.
@@ -87,8 +91,7 @@ export const openingHoursLabel = () => {
 
 export const BUSINESS = {
   name: "Maharishi Crackers",
-  // TODO(abishek): confirm the registered legal entity name as it appears on
-  // the partnership deed — it may differ from the trading name.
+  // Confirmed: the registered name and the trading name are the same.
   legalName: "Maharishi Crackers",
   alternateName: ["Maharishi Fireworks", "Maharishi Crackers Sivakasi", "Maharishi"],
   tagline: "Sivakasi fireworks, delivered across India",
@@ -146,9 +149,9 @@ export const BUSINESS = {
    * single line covers both.
    */
   openingHours: { days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], opens: "09:00", closes: "19:00" },
-  // TODO(abishek): year the business started. Removed rather than inherited —
-  // claiming a founding year that isn't yours is a factual error in the schema.
-  founded: "TODO",
+  // Confirmed by the owner. Published as foundingDate in the Organization
+  // schema, which is where a search result gets "established 2020" from.
+  founded: "2020",
 };
 
 /**
