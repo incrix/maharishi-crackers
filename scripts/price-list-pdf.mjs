@@ -5,15 +5,23 @@
  *   node scripts/price-list-pdf.mjs          # writes the PDF next to the fallback
  *   node scripts/price-list-pdf.mjs --out x  # somewhere else
  *
- * Why this exists: PRICE_LIST_FALLBACK in util/config.js points at a PDF that
- * every "Download price list" link on the site redirects to when the admin has
- * not uploaded one. That file did not exist, so the link 404'd. Rather than
- * shipping a stale scan, the list is generated from the same 145 rows the shop
- * page serves, so the sheet and the site can never disagree.
+ * Why this exists: every "Download price list" link on the site goes to
+ * /api/price-list, which serves whatever the admin last uploaded and otherwise
+ * redirects to PRICE_LIST_FALLBACK. Neither existed, so the link 404'd.
+ * Rather than shipping a stale scan, the list is generated from the same rows
+ * the shop page serves, so the sheet and the site cannot disagree.
  *
- * The admin upload still wins: /api/price-list serves whatever was last
- * uploaded and only falls back to this file. Re-run this after a price change
- * if you would rather not upload a list by hand.
+ * Note where the output goes. The default path is under public/database, which
+ * is gitignored and a symlink to a local folder - so it fixes the link on this
+ * machine only. What fixes it for customers is uploading the file, either
+ * through Admin -> Pricing or with:
+ *
+ *   curl -X POST -H "Cookie: sk_admin=<session>" \
+ *        -F "file=@public/database/MAHARISHI CRACKERS PRICE LIST 2026.pdf;type=application/pdf" \
+ *        https://<site>/api/price-list
+ *
+ * That puts it in S3, which every deployment reads, and the route then serves
+ * it directly instead of redirecting.
  *
  * Rendering is done by the local Google Chrome, which every machine that runs
  * this already has - it is what prints the page to A4. No new dependency, and
@@ -158,3 +166,4 @@ fs.rmSync(path.dirname(tmp), { recursive: true, force: true });
 const kb = (fs.statSync(OUT).size / 1024).toFixed(0);
 console.log(`${OUT} — ${kb} KB, ${rows.length} items across ${groups.length} categories`);
 console.log(groups.map((g) => `  ${g.name}: ${g.items.length}`).join("\n"));
+console.log("\nThis path is gitignored. Upload the file (Admin -> Pricing) so customers get it.");
