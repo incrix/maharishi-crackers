@@ -13,9 +13,9 @@ import {
 import { getProducts } from "@/util/products.server";
 
 export const metadata = {
-  title: "About Us — A Fireworks Shop in Sivakasi",
+  title: "About Us — A Fireworks Shop near Sivakasi",
   description:
-    "Maharishi Crackers is a fireworks retailer working out of Sivakasi, Tamil Nadu. What we stock, how we buy it, and what ordering from us actually involves.",
+    "Maharishi Crackers is a fireworks retailer in Sattur, near Sivakasi in Tamil Nadu. What we stock, how we buy it, and what ordering from us actually involves.",
   keywords: [...KEYWORDS, "about Maharishi Crackers", "Sivakasi crackers shop", "fireworks retailer Sivakasi"],
   alternates: { canonical: `${SITE_URL}/about` },
   openGraph: {
@@ -89,8 +89,8 @@ export default async function AboutPage() {
 
       <PageHero
         eyebrow="About us"
-        title="A fireworks shop in the town that makes them"
-        lead="Maharishi Crackers trades from Sivakasi in Tamil Nadu. We buy from licensed units nearby and sell to households, shops and event buyers — across the counter, and across the country through this site."
+        title="A fireworks shop in the district that makes them"
+        lead="Maharishi Crackers trades from Sattur, in the Sivakasi fireworks belt of Tamil Nadu. We buy from licensed units nearby and sell to households, shops and event buyers — across the counter, and across the country through this site."
       >
         <Stack direction="row" gap={3.5} flexWrap="wrap" sx={{ pt: 1.5 }}>
           {[

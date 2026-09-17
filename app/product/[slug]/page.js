@@ -28,7 +28,11 @@ export async function generateMetadata({ params }) {
   const title = `${product.name} — ${product.category} Crackers at ₹${price}`;
   const description =
     `Order ${product.name} (${product.category}) from Maharishi Crackers, Sivakasi. ` +
-    `₹${price} at ${product.discount}% off MRP ₹${product.price}. ` +
+    // Only mention a discount when there is one. At list price this read
+    // "₹20 at 0% off MRP ₹20", which is both odd and faintly insulting.
+    (product.discount > 0
+      ? `₹${price} at ${product.discount}% off MRP ₹${product.price}. `
+      : `₹${price}. `) +
     (product.shortDescription || "").slice(0, 110);
 
   return {

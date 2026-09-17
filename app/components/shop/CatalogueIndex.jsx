@@ -26,7 +26,7 @@ export default function CatalogueIndex({ products, categories }) {
         <Typography fontSize={14} color="var(--text-color-secondary)" lineHeight={1.7}>
           The full Maharishi Crackers price list — {products.length} crackers across{" "}
           {categories.length} categories, stocked from licensed makers around Sivakasi and sold
-          direct at up to 90% off.
+          direct from the shop.
         </Typography>
       </Stack>
 

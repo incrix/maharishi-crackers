@@ -11,7 +11,7 @@ import { SITE_URL, BUSINESS, KEYWORDS, JsonLd, breadcrumbSchema, faqSchema, loca
 export const metadata = {
   title: "Contact — Reach the Shop",
   description:
-    "How to reach Maharishi Crackers: phone, WhatsApp, email and the shop address in Sivakasi, with trading hours and what to expect after you place an order.",
+    "How to reach Maharishi Crackers: phone, WhatsApp, email and the shop address in Sattur, near Sivakasi, and what to expect after you place an order.",
   keywords: [...KEYWORDS, "Maharishi Crackers contact", "crackers shop Sivakasi address"],
   alternates: { canonical: `${SITE_URL}/contact` },
   openGraph: {
@@ -144,10 +144,11 @@ export default function ContactPage() {
               Contact details are not filled in yet
             </Typography>
             <Typography fontSize={13} lineHeight={1.7} color="var(--text-color-secondary)">
-              {/* TODO(abishek): fill in the BUSINESS block in util/site.js — phone,
-                  whatsapp, email, office address, geo coordinates and hours. Every
-                  channel above turns on by itself once the real value is there, and
-                  the same values feed the footer, the invoices and the SEO schema. */}
+              {/* Phone, WhatsApp, email and the address are now filled in, so this
+                  card no longer renders. Left in place because it is what would
+                  catch the next detail that goes missing — each channel above turns
+                  itself on or off on the value alone, and the same values feed the
+                  footer, the invoices and the search listing. */}
               Set them in <b>BUSINESS</b> in <code>util/site.js</code>. Each card above
               switches on by itself once a real value is present, and the same values
               feed the footer, the PDFs and the search listing. Nothing invented is
@@ -179,11 +180,12 @@ export default function ContactPage() {
             <Typography fontSize={16} fontWeight={800} color="var(--text-color)">Trading hours</Typography>
           </Stack>
           <Typography fontSize={13.5} lineHeight={1.75} color="var(--text-color-secondary)">
-            {/* TODO(abishek): confirm real hours; openingHours in util/site.js currently
-                carries an unverified default. */}
+            {/* TODO(abishek): confirm real hours. openingHours in util/site.js is
+                null until then, so the search listing states no hours rather than
+                guessing at them. */}
             The season runs from roughly a month before Diwali, when the shop is open
-            longest and stock moves fastest. Confirm the day&apos;s hours by phone before
-            travelling any distance.
+            longest and stock moves fastest. Ring {BUSINESS.phone[0]} to check the
+            day&apos;s hours before travelling any distance.
           </Typography>
         </Card>
       </Section>

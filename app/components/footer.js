@@ -83,8 +83,9 @@ export default function Footer() {
             </Stack>
 
             <Typography fontSize={13.5} color="var(--text-color-secondary)" lineHeight={1.7}>
-              Fireworks retailer in Sivakasi, Tamil Nadu. Order the Diwali range
-              from the town where it is made, with dispatch across India.
+              Fireworks retailer in Sattur, Tamil Nadu — the Sivakasi fireworks
+              belt. Order the Diwali range from the district where it is made,
+              with dispatch across India.
             </Typography>
 
             <Stack gap={0.75} mt={0.5}>

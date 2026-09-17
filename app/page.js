@@ -5,10 +5,11 @@ import CatalogueIndex from "@/app/components/shop/CatalogueIndex";
 import ShopHero from "@/app/components/home/ShopHero";
 import HowItWorks from "@/app/components/home/HowItWorks";
 import {
-  SITE_URL, BUSINESS, KEYWORDS, JsonLd, productSlug, priceOf, imageUrl,
+  SITE_URL, BUSINESS, KEYWORDS, JsonLd, productSlug, priceOf, imageUrl, formatAddress,
   organizationSchema, localBusinessSchema, websiteSchema, faqSchema,
   searchActionSchema, merchantPolicySchema,
 } from "@/util/site";
+import { MIN_ORDER } from "@/util/commerce";
 import { getProducts, getCategories } from "@/util/products.server";
 
 /**
@@ -32,39 +33,36 @@ export const metadata = {
     siteName: BUSINESS.name,
     title: "Maharishi Crackers | Sivakasi Fireworks Online",
     description:
-      "Diwali crackers from our Sivakasi shop at up to 90% off. Flower pots, ground chakkars, rockets, aerial shots, sparklers and gift boxes.",
+      "Diwali crackers direct from our Sivakasi-region shop, from ₹7 to ₹1,500. Flower pots, ground chakkars, rockets, aerial shots, sparklers and gift boxes.",
     images: [{ url: `${SITE_URL}/images/logo.png`, width: 512, height: 512, alt: BUSINESS.name }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Maharishi Crackers | Sivakasi Fireworks Online",
-    description: "Buy Diwali crackers online from our Sivakasi shop at up to 90% off.",
+    description: "Buy Diwali crackers online, direct from our Sivakasi-region shop. 145 items across 13 categories.",
   },
 };
 
 const ALL_FAQS = [
   {
     q: "Who is Maharishi Crackers?",
-    a: "Maharishi Crackers is a fireworks retailer trading out of Sivakasi in Tamil Nadu, the town that produces most of what India sets off each Diwali. We buy from licensed units nearby and sell to households, shops and event buyers, both over our counter and through this site.",
+    a: "Maharishi Crackers is a fireworks retailer in Sattur, Virudhunagar district — the Sivakasi belt, which produces most of what India sets off each Diwali. We buy from licensed units nearby and sell to households, shops and event buyers, both over our counter and through this site.",
   },
   {
-    // TODO(abishek): shop address, trading hours and phone number needed.
     q: "Where is the Maharishi Crackers shop?",
-    a: "TODO — add Maharishi's shop address, opening hours and a contact number.",
+    a: `The shop's registered address is ${formatAddress()}. That is in Sattur taluk of Virudhunagar district, about 20km from Sivakasi town itself - Sivakasi is the fireworks region, and the address above is where the business actually sits. Reach us on ${BUSINESS.phone[0]}, on WhatsApp at the same number, or by email at ${BUSINESS.email}.`,
   },
   {
     q: "Can I order Sivakasi fireworks online?",
     a: "You can build an order here, but it completes over the phone. The Supreme Court's 2018 ruling does not allow firecrackers to be sold outright online, so what you submit reaches us as an enquiry. Someone rings or messages you within a day to confirm the items and the total before anything leaves the shop.",
   },
   {
-    // TODO(abishek): price band and discount depend on Maharishi's own list.
     q: "What do the fireworks cost?",
-    a: "TODO — confirm Maharishi's price range, discount off list price and minimum order value once the 2026 price list is finalised.",
+    a: `Individual items run from about ₹7 for a single-sound cracker to ₹1,500 for the largest fancy items, and every price shown on this site is the price you pay - the figure beside each product is what it is billed at. The full list is on the price list, which you can download from any page.`,
   },
   {
-    // TODO(abishek): confirm Maharishi's minimum order value.
     q: "Is there a minimum order?",
-    a: "TODO — confirm the minimum order value for online orders.",
+    a: `Yes - ₹${MIN_ORDER.toLocaleString("en-IN")} for an order placed through this site. Transport is arranged by approved road carrier and a smaller consignment costs more to move than it is worth. There is no minimum over the counter.`,
   },
   {
     q: "What kinds of fireworks do you stock?",

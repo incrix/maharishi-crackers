@@ -66,20 +66,21 @@ export const formatAddress = ({ multiline = false } = {}) => {
 
 export const BUSINESS = {
   name: "Maharishi Crackers",
-  // TODO(abishek): confirm the registered legal entity name — may differ from
-  // the trading name (e.g. "... Firework Industries" / "... Traders").
+  // TODO(abishek): confirm the registered legal entity name as it appears on
+  // the partnership deed — it may differ from the trading name.
   legalName: "Maharishi Crackers",
   alternateName: ["Maharishi Fireworks", "Maharishi Crackers Sivakasi", "Maharishi"],
   tagline: "Sivakasi fireworks, delivered across India",
   description:
     "Maharishi Crackers supplies Sivakasi fireworks and crackers direct to customers across India. Order sparklers, ground chakkars, flower pots, aerial shots and gift boxes online for doorstep delivery.",
-  // TODO(abishek): Maharishi's real contact numbers. These placeholders are
-  // deliberately invalid so they cannot ship unnoticed.
-  phone: ["+91 00000 00000"],
-  // TODO(abishek): WhatsApp number, digits only, with country code (e.g. 91XXXXXXXXXX).
-  whatsapp: "910000000000",
-  // TODO(abishek): Maharishi's public enquiry address.
-  email: "TODO@example.invalid",
+  // The shop's own number. Printed unguarded on the invoice, the challan and
+  // every order email, which is why the placeholder that used to sit here was
+  // not merely untidy - customers were being told to call 00000 00000.
+  phone: ["+91 75488 20326"],
+  // Digits only with the country code: this is interpolated straight into a
+  // wa.me link, which rejects spaces and a leading +.
+  whatsapp: "917548820326",
+  email: "maharishicrackers@gmail.com",
   /**
    * The principal place of business, as recorded in the partnership deed.
    *
@@ -96,12 +97,35 @@ export const BUSINESS = {
     postalCode: "626203",
     country: "IN",
   },
-  // TODO(abishek): coordinates of the address above (Google Maps -> right click
-  // -> copy lat/long). These still point at Sivakasi town centre, roughly 20km
-  // from the registered address, so the map pin is in the wrong town.
-  geo: { latitude: 9.4499, longitude: 77.7983 },
-  // TODO(abishek): confirm trading hours.
-  openingHours: "Mo-Sa 09:00-19:00",
+  /**
+   * Deliberately absent, rather than approximate.
+   *
+   * What used to be here (9.4499, 77.7983) was Sivakasi town centre, about
+   * 20km from the registered address and in a different taluk - a map pin in
+   * the wrong town. The village is O. Mettupatti in Sattur taluk, for which no
+   * published coordinates could be found, and a pin is a precise claim: it is
+   * what a customer or a courier drives to. So the schema omits `geo` while
+   * this is null and builds its map link from the written address instead,
+   * which Google resolves itself.
+   *
+   * TODO(abishek): stand at the shop, open Google Maps, long-press your own
+   * location and paste the two numbers here.
+   */
+  geo: null,
+  /**
+   * Also deliberately absent.
+   *
+   * "Mo-Sa 09:00-19:00" was inherited, never confirmed, and published straight
+   * into the schema - which is what makes a search listing say "Open until
+   * 7pm". The contact page already tells people to ring before travelling,
+   * and the season copy says the shop keeps its longest hours before Diwali,
+   * so a flat Monday-to-Saturday claim is probably wrong in the one month that
+   * matters. Omitted until confirmed rather than published as a guess.
+   *
+   * TODO(abishek): your actual opening and closing times, and which day (if
+   * any) you close. One line, and the listing starts showing them.
+   */
+  openingHours: null,
   // TODO(abishek): year the business started. Removed rather than inherited —
   // claiming a founding year that isn't yours is a factual error in the schema.
   founded: "TODO",
@@ -228,13 +252,19 @@ export const localBusinessSchema = () => ({
         },
       }
     : {}),
-  geo: { "@type": "GeoCoordinates", latitude: BUSINESS.geo.latitude, longitude: BUSINESS.geo.longitude },
-  openingHoursSpecification: {
-    "@type": "OpeningHoursSpecification",
-    dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-    opens: "09:00",
-    closes: "19:00",
-  },
+  ...(BUSINESS.geo
+    ? { geo: { "@type": "GeoCoordinates", latitude: BUSINESS.geo.latitude, longitude: BUSINESS.geo.longitude } }
+    : {}),
+  ...(BUSINESS.openingHours
+    ? {
+        openingHoursSpecification: {
+          "@type": "OpeningHoursSpecification",
+          dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+          opens: "09:00",
+          closes: "19:00",
+        },
+      }
+    : {}),
   areaServed: [
     { "@type": "Country", name: "India" },
     { "@type": "State", name: "Tamil Nadu" },
@@ -243,7 +273,13 @@ export const localBusinessSchema = () => ({
   paymentAccepted: "Cash, UPI, Bank Transfer",
   keywords: KEYWORDS.slice(0, 10).join(", "),
   slogan: "Sivakasi fireworks, delivered across India",
-  hasMap: `https://www.google.com/maps/search/?api=1&query=${BUSINESS.geo.latitude},${BUSINESS.geo.longitude}`,
+  // Coordinates when they exist, otherwise the written address - a search
+  // Google resolves itself, which beats a pin dropped in the wrong town.
+  hasMap: `https://www.google.com/maps/search/?api=1&query=${
+    BUSINESS.geo
+      ? `${BUSINESS.geo.latitude},${BUSINESS.geo.longitude}`
+      : encodeURIComponent(`${BUSINESS.name}, ${formatAddress()}`)
+  }`,
   sameAs: [],
 });
 
