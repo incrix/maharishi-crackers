@@ -1,13 +1,14 @@
 import { requireAdmin } from "@/util/admin/auth";
 import { getSetting, setSetting } from "@/util/settingsStore";
-import { collection, isDbConfigured } from "@/util/db/mongo";
+import { getMedia, putMedia, isMediaConfigured } from "@/util/db/media";
 import { PRICE_LIST_FALLBACK, absoluteAssetUrl } from "@/util/config";
 
 export const dynamic = "force-dynamic";
 
 const KEY = "priceList";
 const DOC = "price-list.pdf";
-// Comfortably under MongoDB's 16 MB per-document ceiling.
+// A limit for the shop rather than the storage: S3 would take far more, but a
+// price list this side of 14 MB is a scan nobody will wait to download.
 const MAX_BYTES = 14 * 1024 * 1024;
 
 /**
@@ -17,10 +18,10 @@ const MAX_BYTES = 14 * 1024 * 1024;
  * link in the site can stay a plain constant (/api/price-list) and still track
  * whatever the admin last uploaded. Nothing else needs changing on upload.
  *
- * Stored in MongoDB rather than Cloudinary: Cloudinary denies delivery of PDF
- * and raw files by default (x-cld-error: "deny or ACL failure"), so an upload
- * would succeed and then 401 on download. This keeps it working with no
- * third-party setting to remember.
+ * Stored in S3 rather than Cloudinary: Cloudinary denies delivery of PDF and
+ * raw files by default (x-cld-error: "deny or ACL failure"), so an upload would
+ * succeed and then 401 on download. The bucket is private and this route is
+ * what serves the file, so there is no third-party setting to remember.
  */
 export async function GET(request) {
   const current = await getSetting(KEY);
@@ -34,10 +35,10 @@ export async function GET(request) {
   // Nothing uploaded yet: fall back to the copy that shipped with the site.
   if (!current) return Response.redirect(absoluteAssetUrl(PRICE_LIST_FALLBACK, request.url), 302);
 
-  const doc = await (await collection("media")).findOne({ name: DOC });
+  const doc = await getMedia(DOC);
   if (!doc) return Response.redirect(absoluteAssetUrl(PRICE_LIST_FALLBACK, request.url), 302);
 
-  return new Response(doc.data.buffer ?? doc.data, {
+  return new Response(doc.data, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${current.name.replace(/[^\w.\- ]/g, "")}"`,
@@ -55,8 +56,8 @@ export async function POST(request) {
   if (denied) return denied;
 
   try {
-    if (!isDbConfigured()) {
-      return Response.json({ error: "No database configured" }, { status: 503 });
+    if (!isMediaConfigured()) {
+      return Response.json({ error: "No document storage configured" }, { status: 503 });
     }
 
     const form = await request.formData();
@@ -72,13 +73,9 @@ export async function POST(request) {
     }
 
     const bytes = Buffer.from(await file.arrayBuffer());
-    // A fixed document name, so each upload replaces the last rather than
-    // leaving a trail of old price lists in the database.
-    await (await collection("media")).updateOne(
-      { name: DOC },
-      { $set: { name: DOC, contentType: "application/pdf", size: bytes.length, data: bytes, createdAt: new Date().toISOString() } },
-      { upsert: true }
-    );
+    // A fixed object name, so each upload replaces the last rather than leaving
+    // a trail of old price lists in the bucket.
+    await putMedia({ name: DOC, contentType: "application/pdf", bytes });
 
     const value = {
       url: "/api/price-list",

@@ -1,4 +1,4 @@
-import { collection, isDbConfigured } from "@/util/db/mongo";
+import { getMedia, isMediaConfigured } from "@/util/db/media";
 
 export const dynamic = "force-dynamic";
 
@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
  * The proforma PDF for one order, as a public URL.
  *
  * It has to be public and unauthenticated because WhatsApp fetches it from
- * Meta's servers to attach to a template message - a session cookie is not
+ * WATI's servers to attach to a template message - a session cookie is not
  * available there.
  *
  * The protection is the URL itself: the id is a random UUID, so the address is
@@ -16,20 +16,20 @@ export const dynamic = "force-dynamic";
  * name, phone and address.
  */
 export async function GET(_request, { params }) {
-  if (!isDbConfigured()) {
+  if (!isMediaConfigured()) {
     return Response.json({ error: "Storage is not configured" }, { status: 503 });
   }
 
-  const name = `proforma:${params.id}`;
-  const doc = await (await collection("media")).findOne({ name });
+  const doc = await getMedia(`proforma:${params.id}`);
   if (!doc) return Response.json({ error: "Not found" }, { status: 404 });
 
-  return new Response(doc.data.buffer ?? doc.data, {
+  return new Response(doc.data, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="Proforma-${doc.ref || params.id}.pdf"`,
+      // S3 lowercases metadata keys on the way back out.
+      "Content-Disposition": `inline; filename="Proforma-${doc.meta?.ref || params.id}.pdf"`,
       // A proforma is re-issued when packing changes the order, so revalidate
-      // rather than letting Meta or a browser hold a stale copy.
+      // rather than letting WATI or a browser hold a stale copy.
       "Cache-Control": "public, max-age=0, must-revalidate",
       ETag: `"${doc.createdAt}"`,
     },

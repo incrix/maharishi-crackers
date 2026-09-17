@@ -72,9 +72,26 @@ caught in Sankamithra: it silently no-opped until the file store learned the pat
 
 ---
 
-## Part 2 — MongoDB → DynamoDB + S3
+## Part 2 — MongoDB → DynamoDB + S3 ✅ done
 
-Not started here: 11 files still import `db/mongo`.
+Done. Nothing imports `db/mongo` any more; the file is deleted. 184 products, 2 orders, the
+categories row and the order counter were migrated and verified. What was actually found here,
+against what this plan assumed:
+
+- **`media` was empty** (0 documents), so nothing had to cross to S3 — Sankamithra's 4.33 MB
+  price list is what caused the 413 there. The S3 path is still built and tested, because the
+  next price-list upload or proforma goes through it.
+- **No `media` table was created.** Documents go to S3, so a DynamoDB media table would be an
+  empty table nothing reads. Four tables: products, orders, settings, counters.
+- **`settings` did carry both conventions**, exactly as suspected: `{_id: "categories", values}`
+  from productsStore and `{_id: ObjectId, key: "wholesaleSlug"}` from settingsStore. Both now land
+  on one `key` attribute.
+- **`wholesaleSlug` and the 91-row `wholesale` collection were NOT migrated.** Maharishi is a pure
+  retailer and the feature was removed from this app, so copying them would create data no code
+  reads. They are still in Mongo — the migration only reads — and the script prints them under
+  "left in Mongo, not migrated" so the omission is visible rather than silent.
+- **`MC-0001` has no `extraDiscount` field at all** (it predates the concession being stored), so
+  the `inferBasis` fallback in `addItem` is load-bearing on real data, not just in theory.
 
 **Why.** The Atlas alert was connection count, not data volume — every serverless instance opens
 a pool and the free tier allows 500. DynamoDB is HTTPS with no persistent connection, so the
@@ -128,8 +145,12 @@ reference** — otherwise the next bill reuses a number belonging to a real orde
 
 ### 2e. Removing Mongo
 
-Delete `util/db/mongo.js`, move `mongodb` to devDependencies (the migration script still needs
-it), update the stale comments, and rewrite `.env.example`.
+Done: `util/db/mongo.js` deleted, `mongodb` moved to devDependencies (the migration script still
+needs it), the stale comment in `ordersStore.file.js` corrected, `.env.example` rewritten around
+AWS — which also cleared the last three Sankamithra values hiding in it (`MONGODB_DB=sankamithra`,
+`thunder.sankamithra.com`, `sankamithrathunderworld@gmail.com`).
+
+`npm run db:setup` and `npm run db:migrate` are now npm scripts, both dry-run by default.
 
 ---
 
@@ -169,6 +190,12 @@ Sankamithra was checked this way; do the same rather than trusting the build:
 - Exercise the stores against **throwaway tables** (`maharishitest_` prefix), not live data. Cover
   the duplicate guard, a concurrent race, the atomic counter, reprice and bulk discount. Purge
   between runs — stale rows produced two false failures in Sankamithra.
+  *Done: 55 assertions against `maharishitest_`, purged before and after, then the tables dropped.
+  Included a 5-device race on one `clientRef` (one order written, no strays), 8 simultaneous bills
+  (8 distinct references), two overlapping packing ticks (both survived, rev reached 2), and the
+  S3 document round trip. Three initial failures were my test's arithmetic, not the stores: the
+  POS applies the concession client-side and posts already-priced lines (`Pos.jsx:165`), so the
+  store is handed `discount: effDiscount(...)` rather than a raw catalogue row.*
 - Check **every** product image resolves, not a sample.
 - Migrate with `--verify` and read the counter line.
 

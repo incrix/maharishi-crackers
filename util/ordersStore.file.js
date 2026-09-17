@@ -9,7 +9,7 @@ import { getCatalogue } from "@/util/productsStore";
 /**
  * File-backed order store — the local-development fallback.
  *
- * Used when MONGODB_URI is unset. See ordersStore.js for the database-backed
+ * Used when the AWS credentials are unset. See ordersStore.js for the database-backed
  * implementation that production uses.
  *
  * Original notes:

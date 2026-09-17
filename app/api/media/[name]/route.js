@@ -1,20 +1,20 @@
-import { collection } from "@/util/db/mongo";
+import { getMedia } from "@/util/db/media";
 
 export const dynamic = "force-dynamic";
 
-/** Serves an admin-uploaded image out of the database. */
+/** Serves an admin-uploaded image out of storage. */
 export async function GET(_request, { params }) {
   try {
     // Only ever a generated hex name — reject anything else rather than let a
-    // crafted value reach the query.
+    // crafted value reach the object key.
     if (!/^[a-f0-9]{20}\.(png|jpg|webp|gif)$/.test(params.name || "")) {
       return new Response("Not found", { status: 404 });
     }
 
-    const doc = await (await collection("media")).findOne({ name: params.name });
+    const doc = await getMedia(params.name);
     if (!doc) return new Response("Not found", { status: 404 });
 
-    return new Response(doc.data.buffer ?? doc.data, {
+    return new Response(doc.data, {
       headers: {
         "Content-Type": doc.contentType || "image/png",
         // Content is immutable: the name is a content-addressed random id.

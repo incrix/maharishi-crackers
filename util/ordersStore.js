@@ -1,5 +1,7 @@
 import crypto from "crypto";
-import { collection, isDbConfigured } from "@/util/db/mongo";
+import {
+  TABLE, getItem, putItem, putIfAbsent, putIfRev, scanAll, bumpCounter, isDbConfigured,
+} from "@/util/db/dynamo";
 import * as fileStore from "./ordersStore.file";
 import { basisMrp, effDiscount, unitOf, orderBasis, inferBasis } from "@/util/pricing";
 import { getCatalogue } from "@/util/productsStore";
@@ -7,15 +9,32 @@ import { getCatalogue } from "@/util/productsStore";
 /**
  * Order storage.
  *
- * MongoDB when MONGODB_URI is set, otherwise the original JSON file store so
- * local development works without a cluster. The database exists because a
+ * DynamoDB when AWS credentials are set, otherwise the original JSON file store
+ * so local development works without a cluster. The database exists because a
  * serverless host has a read-only, ephemeral filesystem - writing orders to
  * disk there fails outright.
  */
 
 const useDb = () => isDbConfigured();
-const orders = () => collection("orders");
-const counters = () => collection("counters");
+
+/**
+ * Duplicate-guard rows share the orders table under a reserved id.
+ *
+ * DynamoDB has no unique secondary index, so the till's clientRef cannot simply
+ * be declared unique the way it was in MongoDB. Instead the first writer claims
+ * `claim#<clientRef>` with a conditional write, which the service evaluates
+ * atomically - a second device racing on the same bill loses the claim rather
+ * than writing a second order. They expire, because they only matter for as
+ * long as a till might retry.
+ */
+const claimId = (key) => `claim#${key}`;
+const isClaim = (row) => String(row?.id || "").startsWith("claim#");
+const CLAIM_TTL_DAYS = 7;
+
+/** Every real order. Claim rows are an implementation detail and never leak. */
+async function allOrders() {
+  return (await scanAll(TABLE.orders)).filter((o) => !isClaim(o));
+}
 
 export const STATUSES = ["new", "packing", "packed", "dispatched", "cancelled"];
 
@@ -56,33 +75,33 @@ function recomputeTotals(order) {
 /**
  * Next sequential reference: MC-0001, MC-0002, ...
  *
- * A findOneAndUpdate with $inc is atomic in MongoDB, so two customers checking
- * out at the same instant cannot be handed the same number - which scanning for
- * the highest existing ref would allow.
+ * ADD is applied by DynamoDB itself and returns the value it settled on, so two
+ * customers checking out at the same instant cannot be handed the same number -
+ * which scanning for the highest existing ref would allow.
  */
 async function nextRef() {
-  const res = await (await counters()).findOneAndUpdate(
-    { _id: "orderRef" },
-    { $inc: { seq: 1 } },
-    { upsert: true, returnDocument: "after" }
-  );
-  const seq = res?.seq ?? res?.value?.seq ?? 1;
+  const seq = await bumpCounter("orderRef", 1);
   return "MC-" + String(seq).padStart(4, "0");
 }
 
-/** Mongo's own _id never leaves the store. */
+/** Left from the MongoDB era, where the store's own _id never left the store. */
 const strip = ({ _id, ...rest }) => rest;
 
 export async function listOrders() {
   if (!useDb()) return fileStore.listOrders();
-  const docs = await (await orders()).find({}).sort({ createdAt: -1 }).toArray();
+  // Sorted here: a Scan comes back in no particular order.
+  const docs = (await allOrders()).sort((a, b) =>
+    String(b.createdAt).localeCompare(String(a.createdAt)));
   return docs.map(strip);
 }
 
 export async function getOrder(id) {
   if (!useDb()) return fileStore.getOrder(id);
-  const doc = await (await orders()).findOne({ id });
-  return doc ? strip(doc) : null;
+  const doc = await getItem(TABLE.orders, id);
+  // A claim row is not an order and must never be served as one, however it
+  // was asked for.
+  if (!doc || isClaim(doc)) return null;
+  return strip(doc);
 }
 
 /**
@@ -98,8 +117,11 @@ export async function createOrder({ billingDetails, productList, emailSent, sour
 
   const key = String(clientRef || "").slice(0, 80);
   if (key) {
-    const existing = await (await orders()).findOne({ clientRef: key });
-    if (existing) return { ...strip(existing), duplicate: true };
+    const claimed = await getItem(TABLE.orders, claimId(key));
+    if (claimed?.orderId) {
+      const existing = await getItem(TABLE.orders, claimed.orderId);
+      if (existing) return { ...strip(existing), duplicate: true };
+    }
   }
 
   const items = (productList || []).map((p) => ({
@@ -148,17 +170,27 @@ export async function createOrder({ billingDetails, productList, emailSent, sour
     history: [{ at: now, event: source === "pos" ? "Billed at the counter" : "Order received" }],
   });
 
-  try {
-    await (await orders()).insertOne({ ...order });
-  } catch (err) {
-    // Two devices raced on the same key; the unique index caught the second.
-    // Hand back the bill that won rather than surfacing an error to the biller.
-    if (err?.code === 11000 && key) {
-      const winner = await (await orders()).findOne({ clientRef: key });
+  // Claim the bill BEFORE writing it. Losing the claim means another device
+  // already wrote this same bill, so hand back theirs rather than surfacing an
+  // error to the biller - or writing a second order with a second reference.
+  if (key) {
+    const won = await putIfAbsent(TABLE.orders, {
+      id: claimId(key),
+      orderId: order.id,
+      createdAt: now,
+      // Read by the table's TTL setting, in whole seconds since the epoch.
+      expiresAt: Math.floor(Date.now() / 1000) + CLAIM_TTL_DAYS * 86400,
+    });
+    if (!won) {
+      const claimed = await getItem(TABLE.orders, claimId(key));
+      const winner = claimed?.orderId ? await getItem(TABLE.orders, claimed.orderId) : null;
       if (winner) return { ...strip(winner), duplicate: true };
+      // The claim exists but its order does not - the winner died between the
+      // two writes. Take it over rather than leaving the till unable to bill.
     }
-    throw err;
   }
+
+  await putItem(TABLE.orders, { ...order });
   return order;
 }
 
@@ -167,10 +199,10 @@ export async function createOrder({ billingDetails, productList, emailSent, sour
  *
  * Read-modify-write, guarded by a revision number. A packer ticking several
  * lines in quick succession fires overlapping requests; each used to read the
- * same document and then replaceOne() the whole thing, so the last write won
- * and the other ticks were silently lost. The write now only lands if the
- * document still carries the revision we read, and a losing writer re-reads
- * and reapplies its own change rather than clobbering someone else's.
+ * same document and then write the whole thing back, so the last write won and
+ * the other ticks were silently lost. The write now only lands if the stored
+ * order still carries the revision we read, and a losing writer re-reads and
+ * reapplies its own change rather than clobbering someone else's.
  */
 export async function updateOrder(id, patch) {
   if (!useDb()) return fileStore.updateOrder(id, patch);
@@ -392,17 +424,18 @@ async function applyOnce(id, patch) {
   const saved = recomputeTotals(next);
   saved.rev = Number(prev.rev || 0) + 1;
 
-  // Orders written before revisions existed have no rev field, which matches
-  // null in a query - so those are accepted on their first guarded write.
-  const guard = prev.rev == null ? { $in: [null, 0] } : prev.rev;
-  const res = await (await orders()).replaceOne({ id, rev: guard }, { ...saved });
-  return res.matchedCount === 1 ? saved : CONFLICT;
+  // Orders written before revisions existed carry no rev at all; passing null
+  // tells the guard to accept either an absent revision or zero.
+  const won = await putIfRev(TABLE.orders, { ...saved }, prev.rev == null ? null : prev.rev);
+  return won ? saved : CONFLICT;
 }
 
 export async function orderStats() {
   if (!useDb()) return fileStore.orderStats();
 
-  const all = await (await orders()).find({}, { projection: { status: 1, total: 1 } }).toArray();
+  // No projection: DynamoDB charges for the item it reads, not the fields
+  // returned, so asking for two attributes would cost exactly the same.
+  const all = await allOrders();
   const by = Object.fromEntries(STATUSES.map((s) => [s, 0]));
   let revenue = 0;
   for (const o of all) {

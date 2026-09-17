@@ -1,6 +1,6 @@
 import { updateOrder, getOrder } from "@/util/ordersStore";
 import { requireAdmin } from "@/util/admin/auth";
-import { withRetry } from "@/util/db/mongo";
+import { withRetry } from "@/util/db/dynamo";
 import { sendCustomerMail } from "@/util/sendMail";
 import { sendCustomerWhatsApp } from "@/util/sendWhatsApp";
 
