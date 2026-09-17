@@ -3,20 +3,26 @@ import { dbDiagnostics } from "@/util/db/dynamo";
 import { mediaDiagnostics } from "@/util/db/media";
 import { mailDiagnostics } from "@/util/sendMail";
 import { whatsAppDiagnostics } from "@/util/sendWhatsApp";
-import { PRODUCT_SEED_URL, ASSET_BASE } from "@/util/config";
+import { PRODUCT_SEED_URL, ASSET_BASE, absoluteAssetUrl } from "@/util/config";
 
 export const dynamic = "force-dynamic";
 
 /** One call that says whether a deployment is actually wired up correctly. */
-export async function GET() {
+export async function GET(request) {
   const denied = await requireAdmin();
   if (denied) return denied;
+
+  // Resolved against this request, because ASSET_BASE is allowed to be a
+  // site-relative path and fetch() rejects one outright - which made this
+  // check report a broken deployment as "Failed to parse URL" and dragged the
+  // whole report's ok flag down with it.
+  const seed = absoluteAssetUrl(PRODUCT_SEED_URL, request.url);
 
   const [db, media, mail, assets] = await Promise.all([
     dbDiagnostics(),
     mediaDiagnostics(),
     mailDiagnostics(),
-    fetch(PRODUCT_SEED_URL, { method: "HEAD", cache: "no-store" })
+    fetch(seed, { method: "HEAD", cache: "no-store" })
       .then((r) => ({ ok: r.ok, status: r.status, base: ASSET_BASE }))
       .catch((e) => ({ ok: false, error: e.message, base: ASSET_BASE })),
   ]);
