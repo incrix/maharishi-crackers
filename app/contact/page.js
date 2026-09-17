@@ -6,7 +6,7 @@ import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
 import Faq from "@/app/components/Faq";
 import PageHero, { Section, Card, Grid } from "@/app/components/pages/PageHero";
-import { SITE_URL, BUSINESS, KEYWORDS, JsonLd, breadcrumbSchema, faqSchema, localBusinessSchema, formatAddress } from "@/util/site";
+import { SITE_URL, BUSINESS, KEYWORDS, JsonLd, breadcrumbSchema, faqSchema, localBusinessSchema, formatAddress, openingHoursLabel } from "@/util/site";
 
 export const metadata = {
   title: "Contact — Reach the Shop",
@@ -180,12 +180,14 @@ export default function ContactPage() {
             <Typography fontSize={16} fontWeight={800} color="var(--text-color)">Trading hours</Typography>
           </Stack>
           <Typography fontSize={13.5} lineHeight={1.75} color="var(--text-color-secondary)">
-            {/* TODO(abishek): confirm real hours. openingHours in util/site.js is
-                null until then, so the search listing states no hours rather than
-                guessing at them. */}
-            The season runs from roughly a month before Diwali, when the shop is open
-            longest and stock moves fastest. Ring {BUSINESS.phone[0]} to check the
-            day&apos;s hours before travelling any distance.
+            {/* The standard hours live in BUSINESS.openingHours and go into the
+                search listing. They are not repeated here on purpose: the season
+                runs longer than they do, and a second copy would be the one that
+                went stale. */}
+            The shop keeps standard hours of {openingHoursLabel()}. From roughly a
+            month before Diwali it opens longer and stock moves fastest, so ring{" "}
+            {BUSINESS.phone[0]} to check the day&apos;s hours before travelling any
+            distance.
           </Typography>
         </Card>
       </Section>

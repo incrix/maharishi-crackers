@@ -64,6 +64,27 @@ export const formatAddress = ({ multiline = false } = {}) => {
     .join(multiline ? "\n" : ", ");
 };
 
+/**
+ * "9am to 7pm, Monday to Saturday" from the stored 24-hour values.
+ *
+ * Derived rather than written out beside them, because the pair that gets
+ * edited and the sentence a customer reads must not be able to disagree.
+ */
+export const openingHoursLabel = () => {
+  const h = BUSINESS.openingHours;
+  if (!h) return null;
+  const clock = (t) => {
+    const [hh, mm] = t.split(":").map(Number);
+    const suffix = hh < 12 ? "am" : "pm";
+    const h12 = hh % 12 === 0 ? 12 : hh % 12;
+    return `${h12}${mm ? `.${String(mm).padStart(2, "0")}` : ""}${suffix}`;
+  };
+  const days = h.days.length === 7
+    ? "every day"
+    : `${h.days[0]} to ${h.days[h.days.length - 1]}`;
+  return `${clock(h.opens)} to ${clock(h.closes)}, ${days}`;
+};
+
 export const BUSINESS = {
   name: "Maharishi Crackers",
   // TODO(abishek): confirm the registered legal entity name as it appears on
@@ -113,19 +134,18 @@ export const BUSINESS = {
    */
   geo: null,
   /**
-   * Also deliberately absent.
+   * The hours the shop publishes.
    *
-   * "Mo-Sa 09:00-19:00" was inherited, never confirmed, and published straight
-   * into the schema - which is what makes a search listing say "Open until
-   * 7pm". The contact page already tells people to ring before travelling,
-   * and the season copy says the shop keeps its longest hours before Diwali,
-   * so a flat Monday-to-Saturday claim is probably wrong in the one month that
-   * matters. Omitted until confirmed rather than published as a guess.
+   * These are the owner's stated standard hours, not an inherited guess. They
+   * go into the search listing, which is what makes a result say "Open until
+   * 7pm", so they are the one value here a customer may act on before ever
+   * reaching the site - change them the day the hours change.
    *
-   * TODO(abishek): your actual opening and closing times, and which day (if
-   * any) you close. One line, and the listing starts showing them.
+   * The contact page deliberately does not repeat them. It tells people to
+   * ring first, because the season before Diwali runs longer than this and no
+   * single line covers both.
    */
-  openingHours: null,
+  openingHours: { days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], opens: "09:00", closes: "19:00" },
   // TODO(abishek): year the business started. Removed rather than inherited —
   // claiming a founding year that isn't yours is a factual error in the schema.
   founded: "TODO",
@@ -259,9 +279,9 @@ export const localBusinessSchema = () => ({
     ? {
         openingHoursSpecification: {
           "@type": "OpeningHoursSpecification",
-          dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-          opens: "09:00",
-          closes: "19:00",
+          dayOfWeek: BUSINESS.openingHours.days,
+          opens: BUSINESS.openingHours.opens,
+          closes: BUSINESS.openingHours.closes,
         },
       }
     : {}),
