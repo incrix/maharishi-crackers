@@ -1,6 +1,7 @@
 import {
   S3Client, GetObjectCommand, PutObjectCommand, HeadObjectCommand, DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
+import { awsCredentials } from "./dynamo";
 
 /**
  * Stored documents: the price list PDF, the per-order proformas, and the
@@ -23,23 +24,16 @@ const BUCKET = process.env.S3_MEDIA_BUCKET || "";
 /** Everything this app owns lives under one prefix, so the bucket can be shared. */
 const PREFIX = process.env.S3_MEDIA_PREFIX || "media/";
 
-export const isMediaConfigured = () =>
-  Boolean(BUCKET && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+export const isMediaConfigured = () => Boolean(BUCKET && awsCredentials());
 
 function client() {
   if (globalThis.__maharishiS3) return globalThis.__maharishiS3;
   globalThis.__maharishiS3 = new S3Client({
     region: REGION,
     // Credentials come from the environment - Vercel's project env vars in
-    // production, .env.local locally. Never checked in.
-    ...(process.env.AWS_ACCESS_KEY_ID
-      ? {
-          credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-          },
-        }
-      : {}),
+    // production, .env.local locally. Never checked in. Shared with dynamo.js
+    // so a mispasted key is cleaned the same way in both places.
+    ...(awsCredentials() ? { credentials: awsCredentials() } : {}),
     maxAttempts: 3,
   });
   return globalThis.__maharishiS3;

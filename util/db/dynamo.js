@@ -51,8 +51,33 @@ export const KEY = {
   [TABLE.counters]: "name",
 };
 
-export const isDbConfigured = () =>
-  Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+/**
+ * Credentials, cleaned of what a web form adds to them.
+ *
+ * Pasting a key into a hosting provider's environment panel routinely picks up
+ * a trailing newline, a leading space, or a pair of quotes somebody typed
+ * around the value. None of that is visible in the field afterwards, and AWS
+ * does not say "your secret has a newline on the end" - it says the request
+ * signature does not match, which reads like the wrong key entirely. That
+ * error took a live storefront to diagnose.
+ *
+ * So the characters that cannot legitimately appear in a key are stripped
+ * here. A key is base64-ish and never contains whitespace or quotes, so this
+ * cannot damage a correct value - it only rescues a mispasted one.
+ */
+const cred = (name) => {
+  const raw = process.env[name];
+  if (!raw) return undefined;
+  return raw.trim().replace(/^["']|["']$/g, "").trim() || undefined;
+};
+
+export const awsCredentials = () => {
+  const accessKeyId = cred("AWS_ACCESS_KEY_ID");
+  const secretAccessKey = cred("AWS_SECRET_ACCESS_KEY");
+  return accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : null;
+};
+
+export const isDbConfigured = () => Boolean(awsCredentials());
 
 /** A host with no writable filesystem, so the JSON file store cannot stand in. */
 const isServerless = () =>
@@ -96,14 +121,7 @@ function client() {
     region: REGION,
     // Credentials come from the environment: Vercel's project env vars in
     // production, .env.local locally. Never checked in.
-    ...(process.env.AWS_ACCESS_KEY_ID
-      ? {
-          credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-          },
-        }
-      : {}),
+    ...(awsCredentials() ? { credentials: awsCredentials() } : {}),
     maxAttempts: 3,
   });
 
@@ -316,7 +334,13 @@ export async function dbDiagnostics() {
       counts: { products: products.length, orders: orders.length },
     };
   } catch (err) {
-    return { ok: false, configured: true, error: err.message };
+    return {
+      ok: false, configured: true, region: REGION, prefix: PREFIX,
+      error: err.message,
+      ...(/signature we calculated does not match/i.test(err.message || "")
+        ? { likelyCause: "AWS_SECRET_ACCESS_KEY is wrong or mispasted. It is 40 characters and may contain / and +; re-add it rather than editing in place, and check for a trailing newline." }
+        : {}),
+    };
   }
 }
 
