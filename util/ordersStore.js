@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import {
-  TABLE, getItem, putItem, putIfAbsent, putIfRev, scanAll, bumpCounter, isDbConfigured,
+  TABLE, getItem, putItem, putIfAbsent, putIfRev, scanAll, bumpCounter, isDbConfigured, assertUsableStore,
 } from "@/util/db/dynamo";
 import * as fileStore from "./ordersStore.file";
 import { basisMrp, effDiscount, unitOf, orderBasis, inferBasis } from "@/util/pricing";
@@ -15,7 +15,13 @@ import { getCatalogue } from "@/util/productsStore";
  * disk there fails outright.
  */
 
-const useDb = () => isDbConfigured();
+function useDb() {
+  if (isDbConfigured()) return true;
+  // Throws on a serverless host rather than limping into a file store that
+  // cannot possibly work there. See assertUsableStore.
+  assertUsableStore();
+  return false;
+}
 
 /**
  * Duplicate-guard rows share the orders table under a reserved id.

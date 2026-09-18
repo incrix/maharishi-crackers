@@ -1,5 +1,5 @@
 import {
-  TABLE, getItem, putItem, deleteItem, scanAll, isEmpty, batchWrite, isDbConfigured,
+  TABLE, getItem, putItem, deleteItem, scanAll, isEmpty, batchWrite, isDbConfigured, assertUsableStore,
 } from "@/util/db/dynamo";
 import { PRODUCT_SEED_URL, absoluteAssetUrl } from "@/util/config";
 import * as fileStore from "./productsStore.file";
@@ -13,7 +13,13 @@ import * as fileStore from "./productsStore.file";
  * than an empty one.
  */
 
-const useDb = () => isDbConfigured();
+function useDb() {
+  if (isDbConfigured()) return true;
+  // Throws on a serverless host rather than limping into a file store that
+  // cannot possibly work there. See assertUsableStore.
+  assertUsableStore();
+  return false;
+}
 
 /**
  * Categories are one row holding a list, not a row per category.

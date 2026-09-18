@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import { TABLE, getItem, putItem, isDbConfigured } from "@/util/db/dynamo";
+import { TABLE, getItem, putItem, isDbConfigured, assertUsableStore } from "@/util/db/dynamo";
 import { DEFAULT_BANNER } from "@/util/config";
 
 /**
@@ -12,7 +12,12 @@ import { DEFAULT_BANNER } from "@/util/config";
  */
 
 export async function getSetting(key) {
-  if (!isDbConfigured()) return null;
+  if (!isDbConfigured()) {
+    // Returning null here is how a missing price list quietly became a
+    // redirect to a file that was not there, with nothing in the logs.
+    assertUsableStore();
+    return null;
+  }
   const doc = await getItem(TABLE.settings, key);
   return doc?.value ?? null;
 }

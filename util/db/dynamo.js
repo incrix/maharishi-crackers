@@ -54,6 +54,34 @@ export const KEY = {
 export const isDbConfigured = () =>
   Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
 
+/** A host with no writable filesystem, so the JSON file store cannot stand in. */
+const isServerless = () =>
+  Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY);
+
+/**
+ * Refuses to fall back to the file store where the file store cannot work.
+ *
+ * The stores drop to JSON on disk when no database is configured, which is
+ * right on a developer's machine and impossible on a serverless host: the
+ * filesystem is read-only, so the fallback fails somewhere deep - fetching a
+ * seed, then reading a local copy that the deploy does not even contain - and
+ * surfaces as a 500 with a stack trace about a missing file. The cause is not
+ * in that trace, so it cost a live storefront to work out.
+ *
+ * Said plainly and early instead. The error names the variables to set,
+ * because that is the entire fix.
+ */
+export function assertUsableStore() {
+  if (isDbConfigured() || !isServerless()) return;
+  const err = new Error(
+    "No database configured. This host has no writable filesystem, so the JSON file store cannot stand in. " +
+    "Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, DYNAMO_TABLE_PREFIX and S3_MEDIA_BUCKET " +
+    "in the project's environment variables, then redeploy - environment changes do not reach a build that has already run."
+  );
+  err.code = "DB_NOT_CONFIGURED";
+  throw err;
+}
+
 /**
  * One client per process, cached on globalThis.
  *
