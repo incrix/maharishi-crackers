@@ -1,5 +1,8 @@
 "use client";
-import { Stack, Typography, Box, Checkbox, LinearProgress, Chip, Button, Tooltip } from "@mui/material";
+import { useMemo, useState } from "react";
+import { Stack, Typography, Box, Checkbox, LinearProgress, Chip, Button, Tooltip, InputBase, IconButton } from "@mui/material";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import DoneAllRoundedIcon from "@mui/icons-material/DoneAllRounded";
 import SwapHorizRoundedIcon from "@mui/icons-material/SwapHorizRounded";
 import RemoveShoppingCartRoundedIcon from "@mui/icons-material/RemoveShoppingCartRounded";
@@ -24,9 +27,38 @@ export default function PackingList({ items, onToggle, onTickAll, onUnavailable,
   const settled = items.filter((i) => i.packed || (i.unavailable && !i.substitute)).length;
   const pct = items.length ? (settled / items.length) * 100 : 0;
   const short = items.filter((i) => i.unavailable).length;
-  // "Tick all" flips to "Clear all" once every fillable line is ticked.
-  const tickable = items.filter((i) => !(i.unavailable && !i.substitute));
-  const allTicked = tickable.length > 0 && tickable.every((i) => i.packed);
+
+  /**
+   * Finding one line on a long bill.
+   *
+   * A 27-line order does not fit on a phone screen, so "is the Laxmi on this
+   * bill, and how many" meant scrolling the whole list twice. Behind a button
+   * rather than always open: most bills are short enough not to need it, and
+   * a permanent field on every order is a permanent thing to scroll past.
+   */
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+
+  const shown = useMemo(() => {
+    if (!q) return items;
+    return items.filter((i) =>
+      [i.name, i.category, i.substitute?.name].filter(Boolean)
+        .some((t) => String(t).toLowerCase().includes(q))
+    );
+  }, [items, q]);
+
+  /**
+   * Counts and progress stay on the whole bill, never on what is filtered.
+   *
+   * "3/3 done" while a search hides the other 24 lines would be a lie the
+   * packer acts on - the bar has to mean the order, not the view.
+   *
+   * Ticking, on the other hand, follows the search on purpose: filter to
+   * "sparkler" and tick all sparklers. The label says which it is about to do.
+   */
+  const tickTarget = (q ? shown : items).filter((i) => !(i.unavailable && !i.substitute));
+  const allTicked = tickTarget.length > 0 && tickTarget.every((i) => i.packed);
 
   return (
     <Stack gap={1.5}>
@@ -55,10 +87,26 @@ export default function PackingList({ items, onToggle, onTickAll, onUnavailable,
               Add product
             </Button>
           )}
+          {items.length > 4 && (
+            <Tooltip title="Search this bill">
+              <IconButton
+                size="small"
+                aria-label="search this bill"
+                onClick={() => { setSearching((v) => !v); if (searching) setQuery(""); }}
+                sx={{
+                  p: 0.5, borderRadius: "var(--radius-sm)",
+                  color: searching || q ? "var(--primary-color)" : "var(--text-color-secondary)",
+                  backgroundColor: searching || q ? "var(--primary-soft)" : "transparent",
+                }}
+              >
+                <SearchRoundedIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          )}
           {onTickAll && !locked && (
             <Button
               size="small"
-              onClick={onTickAll}
+              onClick={() => onTickAll(q ? shown : null)}
               startIcon={<DoneAllRoundedIcon sx={{ fontSize: 15 }} />}
               sx={{
                 textTransform: "none", fontWeight: 800, fontSize: 12, py: 0.25, px: 1.25,
@@ -67,11 +115,37 @@ export default function PackingList({ items, onToggle, onTickAll, onUnavailable,
                 "&:hover": { backgroundColor: "var(--primary-soft)" },
               }}
             >
-              {allTicked ? "Clear all" : "Tick all"}
+              {allTicked ? "Clear" : "Tick"} {q ? `${tickTarget.length} shown` : "all"}
             </Button>
           )}
         </Stack>
       </Stack>
+
+      {searching && (
+        <Stack
+          direction="row" alignItems="center" gap={1}
+          sx={{ border: "1.5px solid var(--border)", borderRadius: "var(--radius-sm)", px: 1.25, py: 0.5,
+                "&:focus-within": { borderColor: "var(--primary-color)" } }}
+        >
+          <SearchRoundedIcon sx={{ fontSize: 17, color: "var(--text-color-trinary)" }} />
+          <InputBase
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Find an item on this bill..."
+            sx={{ flex: 1, fontSize: 13, fontWeight: 600 }}
+          />
+          {q && (
+            <Typography fontSize={11.5} fontWeight={700} color="var(--text-color-secondary)" sx={{ whiteSpace: "nowrap" }}>
+              {shown.length} of {items.length}
+            </Typography>
+          )}
+          <IconButton size="small" aria-label="close search"
+            onClick={() => { setQuery(""); setSearching(false); }} sx={{ p: 0.25 }}>
+            <CloseRoundedIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Stack>
+      )}
 
       <LinearProgress
         variant="determinate"
@@ -86,7 +160,12 @@ export default function PackingList({ items, onToggle, onTickAll, onUnavailable,
       />
 
       <Stack gap={0.75}>
-        {items.map((it) => {
+        {q && shown.length === 0 && (
+          <Typography fontSize={12.5} fontWeight={600} color="var(--text-color-secondary)" sx={{ py: 2, textAlign: "center" }}>
+            Nothing on this bill matches &ldquo;{query.trim()}&rdquo;.
+          </Typography>
+        )}
+        {shown.map((it) => {
           const dropped = it.unavailable && !it.substitute;
           const swapped = Boolean(it.substitute);
 
@@ -203,6 +282,11 @@ export default function PackingList({ items, onToggle, onTickAll, onUnavailable,
             </Stack>
           );
         })}
+        {q && shown.length > 0 && shown.length < items.length && (
+          <Typography fontSize={11.5} fontWeight={700} color="var(--text-color-secondary)" sx={{ pt: 0.5, textAlign: "center" }}>
+            {items.length - shown.length} more line{items.length - shown.length === 1 ? "" : "s"} on this bill are hidden by the search
+          </Typography>
+        )}
       </Stack>
     </Stack>
   );

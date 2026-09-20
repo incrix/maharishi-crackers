@@ -6,7 +6,9 @@ import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import PrintRoundedIcon from "@mui/icons-material/PrintRounded";
 import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
+import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import PackingList from "./PackingList";
+import CustomerEditor from "./CustomerEditor";
 import SubstitutePicker from "./SubstitutePicker";
 import AddItemPicker from "./AddItemPicker";
 import BillingBasis from "./BillingBasis";
@@ -40,6 +42,7 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
     return rec.recorded ? rec : (inferBasis(order) || rec);
   }, [order]);
   const [addOpen, setAddOpen] = useState(false);
+  const [editCustomer, setEditCustomer] = useState(false);
   // null = follow the bill. A typed value moves only what is added next.
   const [chosenExtra, setChosenExtra] = useState(null);
 
@@ -89,6 +92,8 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
     // Re-reads when a different order is opened, or when its status moves on.
   }, [orderId, order?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => { setEditCustomer(false); }, [orderId]);
+
   const toggleTick = (it) =>
     setTicks((prev) => {
       const nextTicks = { ...prev, [it.id]: !prev[it.id] };
@@ -101,9 +106,14 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
    *
    * Lines that could not be filled are skipped: they are settled by being
    * marked out of stock, and ticking one would claim it went in the box.
+   *
+   * `subset` is what the packing list's search is showing, so filtering to
+   * "sparkler" and ticking affects only the sparklers. Null means the whole
+   * bill, which is the unfiltered case.
    */
-  const tickAll = () => {
-    const tickable = (order?.items || []).filter((it) => !(it.unavailable && !it.substitute));
+  const tickAll = (subset) => {
+    const source = Array.isArray(subset) ? subset : (order?.items || []);
+    const tickable = source.filter((it) => !(it.unavailable && !it.substitute));
     const allOn = tickable.length > 0 && tickable.every((it) => ticks[it.id]);
     const nextTicks = { ...ticks };
     tickable.forEach((it) => { nextTicks[it.id] = !allOn; });
@@ -157,19 +167,54 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
       <Stack sx={{ flex: 1, overflowY: "auto", minHeight: 0, p: 2, gap: 2.5 }}>
         {/* Customer + one-tap contact: the owner confirms every order by phone */}
         <Stack gap={1}>
-          <Typography fontSize={14} fontWeight={800} color="var(--text-color)">Customer</Typography>
-          <Stack gap={0.25}>
-            <Typography fontSize={13.5} fontWeight={800} color="var(--text-color)">{c.name}</Typography>
-            <Typography fontSize={12.5} color="var(--text-color-secondary)">{c.address}</Typography>
-            <Typography fontSize={12.5} color="var(--text-color-secondary)">{c.city}, {c.state} — {c.zip}</Typography>
-            <Stack direction="row" alignItems="center" gap={0.5} mt={0.5}>
-              <Typography fontSize={12.5} color="var(--text-color-secondary)">{c.email}</Typography>
-              <IconButton size="small" aria-label="copy email" onClick={() => navigator.clipboard?.writeText(c.email)}>
-                <ContentCopyRoundedIcon sx={{ fontSize: 13 }} />
-              </IconButton>
-            </Stack>
+          <Stack direction="row" alignItems="center" gap={1}>
+            <Typography fontSize={14} fontWeight={800} color="var(--text-color)" flex={1}>Customer</Typography>
+            {!editCustomer && (
+              <Button
+                size="small"
+                onClick={() => setEditCustomer(true)}
+                disabled={busy}
+                startIcon={<EditRoundedIcon sx={{ fontSize: 15 }} />}
+                sx={{
+                  textTransform: "none", fontWeight: 800, fontSize: 12, py: 0.25, px: 1.25,
+                  minWidth: 0, borderRadius: "var(--radius-pill)", color: "var(--primary-color)",
+                  border: "1px solid var(--primary-color)",
+                  "&:hover": { backgroundColor: "var(--primary-soft)" },
+                }}
+              >
+                Edit details
+              </Button>
+            )}
           </Stack>
 
+          {editCustomer ? (
+            <CustomerEditor
+              customer={c}
+              busy={busy}
+              onCancel={() => setEditCustomer(false)}
+              onSave={(customer) => {
+                onPatch({ customer });
+                setEditCustomer(false);
+              }}
+            />
+          ) : (
+            <Stack gap={0.25}>
+              <Typography fontSize={13.5} fontWeight={800} color="var(--text-color)">{c.name}</Typography>
+              {c.phone && (
+                <Typography fontSize={12.5} color="var(--text-color-secondary)">{c.phone}</Typography>
+              )}
+              <Typography fontSize={12.5} color="var(--text-color-secondary)">{c.address}</Typography>
+              <Typography fontSize={12.5} color="var(--text-color-secondary)">{c.city}, {c.state} — {c.zip}</Typography>
+              {c.email && (
+                <Stack direction="row" alignItems="center" gap={0.5} mt={0.5}>
+                  <Typography fontSize={12.5} color="var(--text-color-secondary)">{c.email}</Typography>
+                  <IconButton size="small" aria-label="copy email" onClick={() => navigator.clipboard?.writeText(c.email)}>
+                    <ContentCopyRoundedIcon sx={{ fontSize: 13 }} />
+                  </IconButton>
+                </Stack>
+              )}
+            </Stack>
+          )}
         </Stack>
 
         <OrderActions order={order} onToast={onToast} />

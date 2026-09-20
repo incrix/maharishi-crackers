@@ -210,6 +210,58 @@ export async function updateOrder(id, patch) {
     }
 
     /**
+     * Correct the customer's own details on a raised bill.
+     *
+     * Phone numbers get taken down wrong over a counter and addresses change
+     * between the order and the dispatch, and until now the only way to fix
+     * either was to cancel the bill and write it again - which loses the
+     * reference the customer was already given.
+     *
+     * Only the fields sent are touched, so a panel that knows about six fields
+     * cannot blank a seventh it has never heard of. The name is the one field
+     * that cannot be emptied: it is what the bill, the challan and every
+     * notification address.
+     *
+     * The change is recorded in the history, and the phone and email record what
+     * they were as well as what they became - those two decide where the order's
+     * notifications go, so "who changed this, and from what" is a question worth
+     * being able to answer.
+     */
+    if (patch.customer && typeof patch.customer === "object") {
+      const FIELDS = ["name", "email", "phone", "address", "city", "state", "zip"];
+      const clean = (v) => String(v ?? "").trim().slice(0, 200);
+      const prevCustomer = prev.customer || {};
+      const merged = { ...prevCustomer };
+      const changes = [];
+
+      for (const field of FIELDS) {
+        if (!(field in patch.customer)) continue;
+        const value = clean(patch.customer[field]);
+        if (value === clean(prevCustomer[field])) continue;
+        if (field === "name" && !value) {
+          throw new Error("The customer's name cannot be empty");
+        }
+        // Recording the old value for the two fields that decide where a
+        // notification is delivered; the rest are named but not quoted, to keep
+        // the history readable.
+        changes.push(
+          field === "phone" || field === "email"
+            ? `${field} ${clean(prevCustomer[field]) || "(blank)"} -> ${value || "(blank)"}`
+            : field
+        );
+        merged[field] = value;
+      }
+
+      if (changes.length) {
+        next.customer = merged;
+        next.history = [...(next.history || prev.history || []), {
+          at: next.updatedAt,
+          event: `Customer details updated: ${changes.join(", ")}`,
+        }];
+      }
+    }
+
+    /**
      * Restate the whole bill on a new concession. Mirrors ordersStore.js.
      *
      * One price list, so the only thing that moves is the ExtraDiscount. Lines
