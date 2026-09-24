@@ -36,8 +36,9 @@ export async function getProduct(id) {
   return (await getProducts()).find((p) => String(p.id) === String(id)) || null;
 }
 
+/** Categories in the shop's arranged order - products arrive grouped by it. */
 export async function getCategories() {
   const counts = new Map();
   (await getProducts()).forEach((p) => counts.set(p.category, (counts.get(p.category) || 0) + 1));
-  return [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  return [...counts.entries()].map(([name, count]) => ({ name, count }));
 }

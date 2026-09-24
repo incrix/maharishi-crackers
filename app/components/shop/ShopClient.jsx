@@ -62,10 +62,14 @@ export default function ShopClient() {
     return () => { document.body.style.overflow = ""; };
   }, [cartOpen, filtersOpen]);
 
+  // Rail order follows the arrangement saved in the admin panel, not the
+  // product count - otherwise adding stock to a category silently promoted it
+  // past one the shop had deliberately put first. Products already arrive in
+  // that order, so first appearance (Map insertion order) is the order.
   const categories = useMemo(() => {
     const counts = new Map();
     productList.forEach((p) => counts.set(p.category, (counts.get(p.category) || 0) + 1));
-    return [["All", productList.length], ...[...counts.entries()].sort((a, b) => b[1] - a[1])];
+    return [["All", productList.length], ...counts.entries()];
   }, [productList]);
 
   const shown = useMemo(() => {

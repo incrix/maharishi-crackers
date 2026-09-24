@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { PRODUCT_SEED_URL, absoluteAssetUrl } from "@/util/config";
+import { bySortOrder, arrangeProducts, mergeCategoryOrder, reassignSlots } from "@/util/catalogueOrder";
 
 /**
  * File-backed product catalogue.
@@ -56,7 +57,7 @@ async function readAll() {
       // NOT .map(normalise): map passes the index as the second argument, which
       // normalise would take as the id and renumber the whole catalogue.
       products: products.map((item) => normalise(item)),
-      categories: [...new Set(products.map((p) => p.category))].sort(),
+      categories: [...new Set([...products].sort(bySortOrder).map((p) => p.category))],
       updatedAt: new Date().toISOString(),
     };
     await writeAll(seeded);
@@ -80,6 +81,9 @@ function normalise(p, id) {
     category: String(p.category || "Others").trim(),
     price: Math.max(0, num(p.price)),
     discount: Math.min(95, Math.max(0, num(p.discount))),
+    // Position within its category on the shop; see util/catalogueOrder.
+    sortOrder: p.sortOrder == null ? null : num(p.sortOrder),
+    plSection: String(p.plSection || "").trim(),
     countInStock: Math.max(0, num(p.countInStock)),
     image: Array.isArray(p.image) ? p.image.filter(Boolean) : [],
     brand: p.brand || "Maharishi Crackers",
@@ -92,13 +96,14 @@ function normalise(p, id) {
 }
 
 export async function getCatalogue() {
-  return readAll();
+  const data = await readAll();
+  return { ...data, products: arrangeProducts(data.products, data.categories) };
 }
 
 /** What the storefront sees: active products only. */
 export async function getPublicProducts() {
-  const { products } = await readAll();
-  return products.filter((p) => p.active !== false);
+  const { products, categories } = await readAll();
+  return arrangeProducts(products, categories).filter((p) => p.active !== false);
 }
 
 export async function createProduct(input) {
@@ -110,7 +115,6 @@ export async function createProduct(input) {
     data.products.push(product);
     if (product.category && !data.categories.includes(product.category)) {
       data.categories.push(product.category);
-      data.categories.sort();
     }
     data.updatedAt = new Date().toISOString();
     await writeAll(data);
@@ -127,7 +131,6 @@ export async function updateProduct(id, patch) {
     data.products[i] = merged;
     if (merged.category && !data.categories.includes(merged.category)) {
       data.categories.push(merged.category);
-      data.categories.sort();
     }
     data.updatedAt = new Date().toISOString();
     await writeAll(data);
@@ -153,7 +156,6 @@ export async function addCategory(name) {
     if (!clean) throw new Error("A category name is required");
     if (!data.categories.includes(clean)) {
       data.categories.push(clean);
-      data.categories.sort();
     }
     data.updatedAt = new Date().toISOString();
     await writeAll(data);
@@ -167,7 +169,7 @@ export async function renameCategory(from, to) {
     const clean = String(to || "").trim();
     if (!clean) throw new Error("A category name is required");
     data.products.forEach((p) => { if (p.category === from) p.category = clean; });
-    data.categories = [...new Set(data.categories.map((c) => (c === from ? clean : c)))].sort();
+    data.categories = [...new Set(data.categories.map((c) => (c === from ? clean : c)))];
     data.updatedAt = new Date().toISOString();
     await writeAll(data);
     return data.categories;
@@ -205,5 +207,29 @@ export async function applyBulkDiscount({ discount, category, ids }) {
     data.updatedAt = new Date().toISOString();
     await writeAll(data);
     return changed;
+  });
+}
+
+export async function reorderCategories(values) {
+  return serialise(async () => {
+    const data = await readAll();
+    data.categories = mergeCategoryOrder(data.categories, values);
+    data.updatedAt = new Date().toISOString();
+    await writeAll(data);
+    return data.categories;
+  });
+}
+
+export async function reorderProducts(ids) {
+  return serialise(async () => {
+    const data = await readAll();
+    const list = (Array.isArray(ids) ? ids : []).map(Number).filter(Number.isFinite);
+    const byId = new Map(data.products.map((p) => [Number(p.id), p]));
+    const moved = reassignSlots(list.map((id) => byId.get(id)).filter(Boolean));
+    if (!moved.length) return 0;
+    moved.forEach((m) => Object.assign(byId.get(Number(m.id)), { sortOrder: m.sortOrder }));
+    data.updatedAt = new Date().toISOString();
+    await writeAll(data);
+    return moved.length;
   });
 }

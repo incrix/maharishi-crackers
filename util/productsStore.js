@@ -3,6 +3,7 @@ import {
 } from "@/util/db/dynamo";
 import { PRODUCT_SEED_URL, absoluteAssetUrl } from "@/util/config";
 import * as fileStore from "./productsStore.file";
+import { bySortOrder, arrangeProducts, mergeCategoryOrder, reassignSlots } from "@/util/catalogueOrder";
 
 /**
  * Catalogue storage.
@@ -25,7 +26,8 @@ function useDb() {
  * Categories are one row holding a list, not a row per category.
  *
  * The list is what the admin edits and reorders as a whole, and reading it back
- * as one value means a rename cannot half-apply. It lives in the settings table
+ * as one value means a rename cannot half-apply. Its order is the shop's
+ * arrangement, so nothing here alphabetises it. It lives in the settings table
  * under this key - the same key attribute every other setting uses.
  */
 const CATEGORY_KEY = "categories";
@@ -39,16 +41,12 @@ async function writeCategories(values) {
   return values;
 }
 
-/** Everything in the catalogue, in the order the price list prints. */
+/** Everything in the catalogue, in sortOrder. */
 async function allProducts() {
   const items = await scanAll(TABLE.products);
   // Sorted here rather than by the database: DynamoDB returns a Scan in
-  // whatever order it likes, and the printed order is the point of sortOrder.
-  return items.sort((a, b) => {
-    const sa = a.sortOrder == null ? Number.MAX_SAFE_INTEGER : a.sortOrder;
-    const sb = b.sortOrder == null ? Number.MAX_SAFE_INTEGER : b.sortOrder;
-    return sa - sb || a.id - b.id;
-  });
+  // whatever order it likes, and the arranged order is the point of sortOrder.
+  return items.sort(bySortOrder);
 }
 
 const strip = ({ _id, ...rest }) => rest;
@@ -91,7 +89,9 @@ async function seedIfEmpty() {
   // the id and renumber the whole catalogue.
   const docs = raw.map((item) => normalise(item));
   await batchWrite(TABLE.products, docs);
-  await writeCategories([...new Set(docs.map((d) => d.category))].sort());
+  // Categories start in the order the price list meets them; the admin can
+  // rearrange from there.
+  await writeCategories([...new Set([...docs].sort(bySortOrder).map((d) => d.category))]);
   console.log(`catalogue seeded with ${docs.length} products`);
 }
 
@@ -103,14 +103,15 @@ async function addToCategories(name) {
   if (!name) return;
   const values = await categoryList();
   if (values.includes(name)) return;
-  await writeCategories([...values, name].sort());
+  // Appended, not sorted in: a new category must not reshuffle the arrangement.
+  await writeCategories([...values, name]);
 }
 
 export async function getCatalogue() {
   if (!useDb()) return fileStore.getCatalogue();
   await seedIfEmpty();
   const [items, categories] = await Promise.all([allProducts(), categoryList()]);
-  return { products: items.map(strip), categories: [...categories].sort() };
+  return { products: arrangeProducts(items, categories).map(strip), categories };
 }
 
 export async function getPublicProducts() {
@@ -119,7 +120,8 @@ export async function getPublicProducts() {
   // Filtered here rather than in the Scan: at ~184 items the whole table is one
   // read either way, and a FilterExpression would not make it cheaper -
   // DynamoDB charges for what it reads, not for what survives the filter.
-  return (await allProducts()).filter((p) => p.active !== false).map(strip);
+  const [items, categories] = await Promise.all([allProducts(), categoryList()]);
+  return arrangeProducts(items, categories).filter((p) => p.active !== false).map(strip);
 }
 
 export async function createProduct(input) {
@@ -160,7 +162,7 @@ export async function addCategory(name) {
   const clean = String(name || "").trim();
   if (!clean) throw new Error("A category name is required");
   await addToCategories(clean);
-  return (await categoryList()).sort();
+  return categoryList();
 }
 
 export async function renameCategory(from, to) {
@@ -173,8 +175,9 @@ export async function renameCategory(from, to) {
   if (affected.length) {
     await batchWrite(TABLE.products, affected.map((p) => ({ ...p, category: clean })));
   }
+  // Renamed in place, so the category keeps its arranged position.
   const values = (await categoryList()).map((c) => (c === from ? clean : c));
-  const next = [...new Set(values)].sort();
+  const next = [...new Set(values)];
   await writeCategories(next);
   return next;
 }
@@ -185,7 +188,7 @@ export async function deleteCategory(name) {
   if (inUse) throw new Error(`${inUse} product(s) still use "${name}"`);
   const next = (await categoryList()).filter((c) => c !== name);
   await writeCategories(next);
-  return [...next].sort();
+  return next;
 }
 
 export async function applyBulkDiscount({ discount, category, ids }) {
@@ -204,4 +207,24 @@ export async function applyBulkDiscount({ discount, category, ids }) {
     await batchWrite(TABLE.products, changing.map((p) => ({ ...p, discount: pct })));
   }
   return changing.length;
+}
+
+/** Stores the category order exactly as the shop arranged it. */
+export async function reorderCategories(values) {
+  if (!useDb()) return fileStore.reorderCategories(values);
+  const next = mergeCategoryOrder(await categoryList(), values);
+  await writeCategories(next);
+  return next;
+}
+
+/** Reorders products within one category. See reassignSlots. */
+export async function reorderProducts(ids) {
+  if (!useDb()) return fileStore.reorderProducts(ids);
+  const list = (Array.isArray(ids) ? ids : []).map(Number).filter(Number.isFinite);
+  if (!list.length) return 0;
+
+  const byId = new Map((await scanAll(TABLE.products)).map((p) => [Number(p.id), p]));
+  const moved = reassignSlots(list.map((id) => byId.get(id)).filter(Boolean));
+  if (moved.length) await batchWrite(TABLE.products, moved);
+  return moved.length;
 }
