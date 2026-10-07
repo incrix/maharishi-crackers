@@ -16,10 +16,11 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { pdf } from "@react-pdf/renderer";
 import Template1 from "@/util/invoice/Template1/Template";
 import { assetUrl } from "@/util/config";
+import { paymentOptions } from "@/util/paymentDetails";
+import { minimumFor, isTamilNadu, MIN_ORDER_TN, MIN_ORDER_OUTSIDE_TN } from "@/util/minimumOrder";
 
 const quicksand = Quicksand({ subsets: ["latin"] });
 
-const MIN_ORDER = 3000;
 
 const unit = (i) => Math.round(i.price - (i.price * (i.discount || 0)) / 100);
 const line = (i) =>
@@ -263,7 +264,9 @@ function BillingDetails({ billingDetails, onChange, errors, touched, setTouched,
           multiline={f.multiline}
           rows={f.rows}
           error={Boolean(bad)}
-          helperText={bad || " "}
+          helperText={bad || (f.name === "state" && billingDetails.state?.trim() && !isTamilNadu(billingDetails.state)
+            ? `Outside Tamil Nadu: minimum order is ${inr(MIN_ORDER_OUTSIDE_TN)}`
+            : " ")}
           inputProps={{ inputMode: f.inputMode, maxLength: f.maxLength }}
           sx={{
             "& .MuiOutlinedInput-root": {
@@ -341,11 +344,17 @@ function OrderSummary({ billingDetails, onBack, onDone, toast }) {
 
   const total = cart.reduce((a, i) => a + line(i), 0);
   const mrp = cart.reduce((a, i) => a + Math.round(i.price * (i.count || 0)), 0);
-  const belowMin = total <= MIN_ORDER;
+  // Follows the delivery state as it is typed: outside Tamil Nadu the parcel
+  // crosses state lines and the minimum is higher. See util/minimumOrder.js.
+  const minOrder = minimumFor(billingDetails.state);
+  const outsideTn = minOrder > MIN_ORDER_TN;
+  const belowMin = total <= minOrder;
 
   const handlePlaceOrder = async () => {
     if (belowMin) {
-      toast(`Order total must be above ${inr(MIN_ORDER)} to place an order.`);
+      toast(outsideTn
+        ? `Orders delivered outside Tamil Nadu must be above ${inr(minOrder)}.`
+        : `Order total must be above ${inr(minOrder)} to place an order.`);
       return;
     }
     setLoading(true);
@@ -502,7 +511,8 @@ function OrderSummary({ billingDetails, onBack, onDone, toast }) {
               <Stack direction="row" gap={1} alignItems="center" sx={{ backgroundColor: "#fff4f4", border: "1px solid #ffd4d4", borderRadius: "10px", px: 1.5, py: 1 }}>
                 <ErrorOutlineRoundedIcon sx={{ color: "#e03131", fontSize: 18 }} />
                 <Typography fontSize={12} fontWeight={700} color="#c92a2a">
-                  Add {inr(MIN_ORDER - total + 1)} more — minimum order is {inr(MIN_ORDER)}
+                  Add {inr(minOrder - total + 1)} more — minimum order
+                  {outsideTn ? ` for delivery outside Tamil Nadu (${billingDetails.state.trim()})` : ""} is {inr(minOrder)}
                 </Typography>
               </Stack>
             )}
@@ -555,6 +565,16 @@ function Row({ label, value, strike, green }) {
 function OrderPlaced({ result }) {
   const router = useRouter();
   const [downloaded, setDownloaded] = useState(false);
+  // Where to pay, as the shop last set it in the admin. Fetched rather than
+  // compiled in, so a changed account number reaches the very next customer.
+  const [pay, setPay] = useState(null);
+  const [copied, setCopied] = useState(null);
+  useEffect(() => {
+    fetch("/api/payment-details").then((r) => r.json()).then(setPay).catch(() => {});
+  }, []);
+  const copy = (v) => {
+    try { navigator.clipboard?.writeText(v); setCopied(v); setTimeout(() => setCopied(null), 1500); } catch {}
+  };
   if (!result) return null;
 
   const { emailSent, recorded, ref, mail, invoice, billing, total } = result;
@@ -595,8 +615,8 @@ function OrderPlaced({ result }) {
             )}
             <Typography fontSize={14} color="var(--text-color-secondary)">
               Thanks {billing?.name?.split(" ")[0] || "there"} — we&apos;ve received your order
-              of <b>{inr(total)}</b>. Our team will call or WhatsApp you on{" "}
-              <b>{billing?.phone}</b> within 24 hours to confirm.
+              of <b>{inr(total)}</b>. Please pay using the details below to confirm it; we start
+              packing as soon as your payment reaches us.
             </Typography>
 
             {/* Say plainly whether the receipt actually sent, rather than
@@ -621,6 +641,41 @@ function OrderPlaced({ result }) {
           </>
         )}
       </Stack>
+
+      {received && pay && paymentOptions(pay).length > 0 && (
+        <Card sx={{ width: "100%" }}>
+          <Stack gap={1.5} width="100%" maxWidth={480} mx="auto">
+            <Stack direction="row" alignItems="baseline" justifyContent="space-between" gap={1}>
+              <Typography fontSize={14} fontWeight={800} color="var(--text-color)">Pay to confirm your order</Typography>
+              <Typography fontSize={20} fontWeight={800} color="var(--primary-color)">{inr(total)}</Typography>
+            </Stack>
+            {paymentOptions(pay).map((o) => (
+              <Stack key={o.key} gap={0.5}
+                sx={{ p: 1.5, borderRadius: "var(--radius)", border: "1px solid var(--primary-border)", backgroundColor: "var(--primary-softer)" }}>
+                <Typography fontSize={13.5} fontWeight={800} color="var(--text-color)">{o.title}</Typography>
+                {o.rows.map(([k, v]) => (
+                  <Stack key={k} direction="row" alignItems="center" gap={1}>
+                    <Typography fontSize={12.5} color="var(--text-color-secondary)" sx={{ minWidth: 96 }}>{k}</Typography>
+                    <Typography fontSize={14} fontWeight={800} color="var(--text-color)" sx={{ wordBreak: "break-all", flex: 1 }}>{v}</Typography>
+                    {k !== "Name" && k !== "Account name" && k !== "Bank" && (
+                      <Button size="small" onClick={() => copy(v)}
+                        sx={{ textTransform: "none", fontWeight: 800, fontSize: 11.5, minWidth: 0, px: 1, py: 0,
+                              color: copied === v ? "var(--success)" : "var(--primary-color)" }}>
+                        {copied === v ? "Copied" : "Copy"}
+                      </Button>
+                    )}
+                  </Stack>
+                ))}
+              </Stack>
+            ))}
+            <Typography fontSize={12.5} color="var(--text-color-secondary)" lineHeight={1.6}>
+              Mention <b>{ref || "your name"}</b> with the payment
+              {pay.confirmTo ? <>, then send the screenshot on WhatsApp to <b>{pay.confirmTo}</b></> : null}.
+              {pay.note ? ` ${pay.note}` : ""}
+            </Typography>
+          </Stack>
+        </Card>
+      )}
 
       <Card sx={{ width: "100%" }}>
         <Stack gap={1.5} width="100%" maxWidth={480} mx="auto">

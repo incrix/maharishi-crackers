@@ -41,7 +41,7 @@ const { TABLE, getItem, scanAll } = await import("../util/db/dynamo.js");
 const { BUSINESS, formatAddress } = { // site.js carries JSX, so the few values
   BUSINESS: {                         // it would supply are restated here.
     name: "MAHARISHI CRACKERS",
-    phone: "+91 75488 20326",
+    phone: "+91 63851 32133",
     email: "maharishicrackers@gmail.com",
   },
   formatAddress: () =>

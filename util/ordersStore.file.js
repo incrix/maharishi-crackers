@@ -5,6 +5,9 @@ import { basisMrp, effDiscount, unitOf, orderBasis, inferBasis } from "@/util/pr
 // Dispatches to the file-backed catalogue whenever there is no database, so
 // this store stays self-contained in local development.
 import { getCatalogue } from "@/util/productsStore";
+import { applyPayment, removePayment } from "@/util/orderPayments";
+import { normaliseDispatch, dispatchEvent } from "@/util/orderDispatch";
+import { isCombo, normaliseContents } from "@/util/combo";
 
 /**
  * File-backed order store — the local-development fallback.
@@ -137,6 +140,7 @@ export async function createOrder({ billingDetails, productList, emailSent, sour
       mrp: p.price,
       discount: p.discount || 0,
       count: p.count || 0,
+      ...(isCombo(p) ? { contents: normaliseContents(p.contents) } : {}), // see ordersStore.js
       total: lineTotal(p),
       packed: false,      // per-item packing checklist
       unavailable: false, // packer found the shelf empty
@@ -204,9 +208,41 @@ export async function updateOrder(id, patch) {
     if (typeof patch.note === "string") next.note = patch.note;
     if (typeof patch.emailSent === "boolean") next.emailSent = patch.emailSent;
 
+    if (patch.dispatch) { // see ordersStore.js
+      const d = normaliseDispatch(patch.dispatch);
+      if (d) {
+        next.dispatch = d;
+        next.history = [...(next.history || prev.history || []), { at: next.updatedAt, event: dispatchEvent(d) }];
+      }
+    }
+
     // A cancelled bill is settled. Reopen it before changing the items.
     if (prev.status === "cancelled" && (patch.addItem || patch.removeItem !== undefined)) {
       throw new Error("This order is cancelled - reopen it before changing the items");
+    }
+
+    /**
+     * Money collected against the bill - see util/orderPayments.js.
+     *
+     * Recorded as receipts rather than a single "paid" figure, so a GPay advance
+     * and the deposit that follows it both survive as separate facts. What is
+     * still owed is worked out from them wherever it is shown, which keeps it
+     * right when a line is added to the order after the first payment.
+     */
+    if (patch.addPayment) {
+      const taken = applyPayment(next, patch.addPayment);
+      if (taken) {
+        next.payments = taken.payments;
+        next.history = [...(next.history || prev.history || []), { at: next.updatedAt, event: taken.event }];
+      }
+    }
+
+    if (patch.removePayment) {
+      const dropped = removePayment(next, patch.removePayment);
+      if (dropped) {
+        next.payments = dropped.payments;
+        next.history = [...(next.history || prev.history || []), { at: next.updatedAt, event: dropped.event }];
+      }
     }
 
     /**
@@ -350,6 +386,7 @@ export async function updateOrder(id, patch) {
           packed: false,
           unavailable: false,
           substitute: null,
+          ...(isCombo(product) ? { contents: normaliseContents(product.contents) } : {}),
           addedAfterBilling: true,
         };
         items.push(line);

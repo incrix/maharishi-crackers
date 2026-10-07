@@ -72,3 +72,18 @@ export async function getBanner() {
     return DEFAULT_BANNER;
   }
 }
+
+export const PAYMENT_DETAILS_KEY = "paymentDetails";
+
+/**
+ * Where customers send their money, as the admin last saved it.
+ *
+ * Falls back to the built-in UPI number rather than nothing: an
+ * order-received email with no way to pay is worse than one with the shop's
+ * own number on it.
+ */
+export async function getPaymentDetails() {
+  const { DEFAULT_PAYMENT_DETAILS, normalisePaymentDetails } = await import("@/util/paymentDetails");
+  const saved = await getSettingSafe(PAYMENT_DETAILS_KEY);
+  return normalisePaymentDetails(saved || DEFAULT_PAYMENT_DETAILS);
+}

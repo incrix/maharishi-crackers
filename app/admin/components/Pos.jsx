@@ -17,6 +17,7 @@ import QtyStepper from "@/app/components/commerce/QtyStepper";
 import { useAdmin } from "../AdminContext";
 import { basisMrp, effDiscount, unitOf } from "@/util/pricing";
 import { BAR_H } from "./AdminShell";
+import { BUSINESS } from "@/util/site";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 const PAGE = 40;
@@ -200,7 +201,7 @@ export default function Pos() {
         .tot { font-weight:bold; font-size:13px; }
       </style></head><body>
         <h2>MAHARISHI CRACKERS</h2>
-        <div class="c muted">Fireworks &amp; Crackers · Sivakasi<br>+91 94892 39970</div>
+        <div class="c muted">Fireworks &amp; Crackers · Sivakasi<br>${BUSINESS.phone[0]}</div>
         <div class="rule"></div>
         <div>Bill: <b>${bill.ref}</b></div>
         <div class="muted">${bill.at.toLocaleString("en-IN")}</div>

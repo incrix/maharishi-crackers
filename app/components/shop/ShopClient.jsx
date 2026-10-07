@@ -27,8 +27,8 @@ import CartPanel from "@/app/components/commerce/CartPanel";
 
 /** One definition, so the skeletons and the real grid cannot drift apart. */
 const GRID_COLS = {
-  xs: "repeat(2, 1fr)", sm: "repeat(2, 1fr)",
-  md: "repeat(3, 1fr)", lg: "repeat(4, 1fr)",
+  xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(2, minmax(0, 1fr))",
+  md: "repeat(3, minmax(0, 1fr))", lg: "repeat(4, minmax(0, 1fr))",
 };
 
 export default function ShopClient() {

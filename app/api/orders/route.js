@@ -3,6 +3,11 @@ import { requireAdmin } from "@/util/admin/auth";
 import { sendOrderMails } from "@/util/sendMail";
 import { sendOrderWhatsApps } from "@/util/sendWhatsApp";
 import { saveProforma, proformaUrl } from "@/util/proformaStore";
+import { minimumFor, meetsMinimumFor, MIN_ORDER_TN } from "@/util/minimumOrder";
+
+const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
+/** Rounded per unit, the same way the cart and checkout round it. */
+const lineAmount = (p) => Math.round(p.price - (p.price * (p.discount || 0)) / 100) * (p.count || 0);
 
 export const dynamic = "force-dynamic";
 // Saving the order plus two emails; the default 10s can be tight on a slow
@@ -44,6 +49,20 @@ export async function POST(request) {
 
     if (!billingDetails?.name || !Array.isArray(productList) || !productList.length) {
       return Response.json({ error: "Invalid order payload" }, { status: 400 });
+    }
+
+    // The website minimum, checked here as well as at checkout so it holds no
+    // matter what the browser sends. Counter bills are exempt - see Pos.jsx.
+    if (!isPos) {
+      const total = productList.reduce((n, p) => n + lineAmount(p), 0);
+      if (!meetsMinimumFor(total, billingDetails.state)) {
+        const min = minimumFor(billingDetails.state);
+        return Response.json({
+          error: min > MIN_ORDER_TN
+            ? `Orders delivered outside Tamil Nadu must be above ${inr(min)}.`
+            : `Order total must be above ${inr(min)}.`,
+        }, { status: 400 });
+      }
     }
 
     // The concession is only meaningful for a counter bill, and only staff can

@@ -2,6 +2,22 @@
 import { Stack, Typography, LinearProgress, Box } from "@mui/material";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import { MIN_ORDER } from "@/util/cart";
+import { MIN_ORDER_OUTSIDE_TN } from "@/util/minimumOrder";
+
+/**
+ * The cart cannot know the delivery state yet - that is asked at checkout -
+ * so it gates on the Tamil Nadu figure and says plainly that orders going
+ * further need more, rather than letting a customer find out at the last step.
+ */
+function OutsideTnNote({ total }) {
+  if (total > MIN_ORDER_OUTSIDE_TN) return null;
+  return (
+    <Typography fontSize={11.5} fontWeight={600} color="var(--text-color-secondary)">
+      Delivering outside Tamil Nadu? The minimum there is ₹{MIN_ORDER_OUTSIDE_TN.toLocaleString("en-IN")}
+      {" "}(₹{Math.max(0, MIN_ORDER_OUTSIDE_TN - total).toLocaleString("en-IN")} more).
+    </Typography>
+  );
+}
 
 /**
  * The ₹3000 minimum, reframed.
@@ -15,6 +31,7 @@ export default function MinimumMeter({ total, shortBy, meetsMinimum }) {
 
   if (meetsMinimum) {
     return (
+      <Stack gap={0.75}>
       <Stack
         direction="row"
         alignItems="center"
@@ -31,6 +48,8 @@ export default function MinimumMeter({ total, shortBy, meetsMinimum }) {
         <Typography fontSize={13} fontWeight={700} color="#14713c">
           Minimum order reached — you&apos;re ready to check out
         </Typography>
+      </Stack>
+      <OutsideTnNote total={total} />
       </Stack>
     );
   }
@@ -73,6 +92,7 @@ export default function MinimumMeter({ total, shortBy, meetsMinimum }) {
           },
         }}
       />
+      <OutsideTnNote total={total} />
     </Stack>
   );
 }

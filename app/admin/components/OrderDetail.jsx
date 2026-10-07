@@ -8,6 +8,8 @@ import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
 import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import PackingList from "./PackingList";
+import PaymentBox from "./PaymentBox";
+import DispatchDialog from "./DispatchDialog";
 import CustomerEditor from "./CustomerEditor";
 import SubstitutePicker from "./SubstitutePicker";
 import AddItemPicker from "./AddItemPicker";
@@ -42,6 +44,7 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
     return rec.recorded ? rec : (inferBasis(order) || rec);
   }, [order]);
   const [addOpen, setAddOpen] = useState(false);
+  const [dispatchOpen, setDispatchOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState(false);
   // null = follow the bill. A typed value moves only what is added next.
   const [chosenExtra, setChosenExtra] = useState(null);
@@ -219,6 +222,15 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
 
         <OrderActions order={order} onToast={onToast} />
 
+        {/* Above the packing list: what is still to collect has to be known
+            while the parcel is being filled, not after it has left. */}
+        <PaymentBox
+          order={order}
+          busy={busy}
+          onAdd={(entry, notify) => onPatch({ addPayment: entry, ...(notify ? { notifyPaid: true } : {}) })}
+          onRemove={(id) => onPatch({ removePayment: id })}
+        />
+
         <Divider />
 
         {/* How the bill was written, and what the next line will cost. A single
@@ -249,6 +261,14 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
           basis={editBasis}
           onClose={() => setAddOpen(false)}
           onAdd={(payload) => onPatch({ addItem: payload })}
+        />
+
+        <DispatchDialog
+          open={dispatchOpen}
+          order={order}
+          busy={busy}
+          onClose={() => setDispatchOpen(false)}
+          onConfirm={(dispatch) => { onPatch({ status: "dispatched", dispatch }); setDispatchOpen(false); }}
         />
 
         <SubstitutePicker
@@ -310,6 +330,8 @@ export default function OrderDetail({ order, onClose, onPatch, busy, onToast }) 
             disabled={busy || (order.status === "packing" && !allSettled)}
             onClick={() => {
               if (next?.to === "packed") { try { localStorage.removeItem(storeKey); } catch {} }
+              // Dispatch asks how it went first, so the email can say.
+              if (next?.to === "dispatched") { setDispatchOpen(true); return; }
               onPatch({ status: next?.to });
             }}
             sx={{

@@ -100,10 +100,10 @@ export const BUSINESS = {
   // The shop's own number. Printed unguarded on the invoice, the challan and
   // every order email, which is why the placeholder that used to sit here was
   // not merely untidy - customers were being told to call 00000 00000.
-  phone: ["+91 75488 20326"],
+  phone: ["+91 63851 32133"],
   // Digits only with the country code: this is interpolated straight into a
   // wa.me link, which rejects spaces and a leading +.
-  whatsapp: "917548820326",
+  whatsapp: "916385132133",
   email: "maharishicrackers@gmail.com",
   /**
    * The principal place of business, as recorded in the partnership deed.

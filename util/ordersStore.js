@@ -5,6 +5,9 @@ import {
 import * as fileStore from "./ordersStore.file";
 import { basisMrp, effDiscount, unitOf, orderBasis, inferBasis } from "@/util/pricing";
 import { getCatalogue } from "@/util/productsStore";
+import { applyPayment, removePayment } from "@/util/orderPayments";
+import { normaliseDispatch, dispatchEvent } from "@/util/orderDispatch";
+import { isCombo, normaliseContents } from "@/util/combo";
 
 /**
  * Order storage.
@@ -139,6 +142,9 @@ export async function createOrder({ billingDetails, productList, emailSent, sour
     mrp: p.price,
     discount: p.discount || 0,
     count: p.count || 0,
+    // A combo's contents as they were when it was sold, so the packing list
+    // still says what goes in the box after the pack itself is changed.
+    ...(isCombo(p) ? { contents: normaliseContents(p.contents) } : {}),
     total: lineTotal(p),
     packed: false,
     unavailable: false,
@@ -247,6 +253,39 @@ async function applyOnce(id, patch) {
 
   if (typeof patch.note === "string") next.note = patch.note;
   if (typeof patch.emailSent === "boolean") next.emailSent = patch.emailSent;
+
+  /** Transport and LR number, given when marking dispatched - see util/orderDispatch.js. */
+  if (patch.dispatch) {
+    const d = normaliseDispatch(patch.dispatch);
+    if (d) {
+      next.dispatch = d;
+      next.history = [...(next.history || prev.history || []), { at: next.updatedAt, event: dispatchEvent(d) }];
+    }
+  }
+
+  /**
+   * Money collected against the bill - see util/orderPayments.js.
+   *
+   * Recorded as receipts rather than a single "paid" figure, so a GPay advance
+   * and the deposit that follows it both survive as separate facts. What is
+   * still owed is worked out from them wherever it is shown, which keeps it
+   * right when a line is added to the order after the first payment.
+   */
+  if (patch.addPayment) {
+    const taken = applyPayment(next, patch.addPayment);
+    if (taken) {
+      next.payments = taken.payments;
+      next.history = [...(next.history || prev.history || []), { at: next.updatedAt, event: taken.event }];
+    }
+  }
+
+  if (patch.removePayment) {
+    const dropped = removePayment(next, patch.removePayment);
+    if (dropped) {
+      next.payments = dropped.payments;
+      next.history = [...(next.history || prev.history || []), { at: next.updatedAt, event: dropped.event }];
+    }
+  }
 
   /**
    * Correct the customer's own details on a raised bill.
@@ -408,6 +447,7 @@ async function applyOnce(id, patch) {
         packed: false,
         unavailable: false,
         substitute: null,
+        ...(isCombo(product) ? { contents: normaliseContents(product.contents) } : {}),
         addedAfterBilling: true,
       };
       items.push(line);

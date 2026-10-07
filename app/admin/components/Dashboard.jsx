@@ -9,6 +9,7 @@ import RevenueChart, { panel } from "./RevenueChart";
 import PriceListCard from "./PriceListCard";
 import SalesBreakdown from "./SalesBreakdown";
 import BannerCard from "./BannerCard";
+import PaymentDetailsCard from "./PaymentDetailsCard";
 import { summary, dailySeries, topProducts } from "@/util/analytics";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -153,6 +154,8 @@ export default function Dashboard({ orders, onJump }) {
       </Stack>
 
       <SalesBreakdown orders={orders} />
+
+      <PaymentDetailsCard />
 
       <BannerCard />
 

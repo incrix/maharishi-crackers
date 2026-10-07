@@ -6,7 +6,9 @@ import Link from "next/link";
 import { assetUrl, productImage } from "@/util/config";
 import { productSlug } from "@/util/site";
 import QtyStepper from "./QtyStepper";
+import ComboArt from "./ComboArt";
 import { unitPrice } from "@/util/cart";
+import { isCombo, comboUnits, showsCount } from "@/util/combo";
 
 /**
  * Product tile.
@@ -20,6 +22,7 @@ export default function ProductCard({ product, line, onAdd, onQty, onAdjust }) {
   const price = unitPrice(product);
   const out = product.countInStock <= 0;
   const added = Boolean(line);
+  const combo = isCombo(product);
   const saving = Math.max(0, (product.price || 0) - price);
 
   /**
@@ -38,9 +41,10 @@ export default function ProductCard({ product, line, onAdd, onQty, onAdjust }) {
       gap={1}
       sx={{
         p: 1.25,
+        minWidth: 0, // lets the one-line contents preview truncate instead of widening the column
         borderRadius: "var(--radius-lg)",
-        border: added ? "1.5px solid var(--primary-color)" : "1px solid var(--border)",
-        backgroundColor: "var(--surface)",
+        border: added ? "1.5px solid var(--primary-color)" : combo ? "1px solid var(--primary-border)" : "1px solid var(--border)",
+        backgroundColor: combo ? "var(--primary-softer)" : "var(--surface)",
         position: "relative",
         // The lift is tinted with the brand green rather than neutral black, so
         // the shadow belongs to the palette instead of greying the card out.
@@ -90,6 +94,8 @@ export default function ProductCard({ product, line, onAdd, onQty, onAdjust }) {
               borderRadius: "10px", backgroundColor: "var(--surface-muted)", display: "block",
             }}
           />
+        ) : combo ? (
+          <ComboArt product={product} sx={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "10px" }} />
         ) : (
           <Stack
             alignItems="center"
@@ -109,8 +115,8 @@ export default function ProductCard({ product, line, onAdd, onQty, onAdjust }) {
         )}
       </Box>
 
-      <Typography fontSize={10.5} fontWeight={700} color="var(--text-color-trinary)">
-        {product.category}
+      <Typography fontSize={10.5} fontWeight={700} color={combo ? "var(--primary-color)" : "var(--text-color-trinary)"}>
+        {combo ? `🎁 Package${showsCount(product) ? ` · ${comboUnits(product)} pieces` : ""}` : product.category}
       </Typography>
 
       <Typography
@@ -128,6 +134,13 @@ export default function ProductCard({ product, line, onAdd, onQty, onAdjust }) {
       >
         {product.name}
       </Typography>
+
+      {combo && (
+        <Typography fontSize={11} color="var(--text-color-secondary)" noWrap title={product.contents.map((c) => c.name).join(", ")}>
+          {product.contents.slice(0, 4).map((c) => c.name).join(", ")}
+          {product.contents.length > 4 ? ` +${product.contents.length - 4} more` : ""}
+        </Typography>
+      )}
 
       <Stack direction="row" alignItems="baseline" gap={0.75} flexWrap="wrap">
         <Typography fontSize={16} fontWeight={800} color="var(--primary-color)">
