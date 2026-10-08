@@ -39,12 +39,6 @@ export async function PATCH(request, { params }) {
   try {
     order = await withRetry(() => updateOrder(params.id, patch));
   } catch (err) {
-    if (err?.code === "TAKEN") {
-      // Someone else got there first. Send the order back as it stands so the
-      // panel shows who has it instead of the stale "nobody" it was showing.
-      const current = await getOrder(params.id).catch(() => null);
-      return Response.json({ error: err.message, taken: err.by, order: current }, { status: 409 });
-    }
     return Response.json({ error: err.message || "Could not update the order" }, { status: 400 });
   }
   if (!order) return Response.json({ error: "Not found" }, { status: 404 });
