@@ -7,6 +7,7 @@ import { basisMrp, effDiscount, unitOf, orderBasis, inferBasis } from "@/util/pr
 import { getCatalogue } from "@/util/productsStore";
 import { applyPayment, removePayment } from "@/util/orderPayments";
 import { normaliseDispatch, dispatchEvent } from "@/util/orderDispatch";
+import { applyHandler } from "@/util/orderHandler";
 import { isCombo, normaliseContents } from "@/util/combo";
 
 /**
@@ -207,6 +208,16 @@ export async function updateOrder(id, patch) {
 
     if (typeof patch.note === "string") next.note = patch.note;
     if (typeof patch.emailSent === "boolean") next.emailSent = patch.emailSent;
+
+    /** Who is handling the order and who confirmed it - see util/orderHandler.js. */
+    if (patch.handler) {
+      const h = applyHandler(prev, patch.handler);
+      if (h) {
+        if ("handledBy" in h) next.handledBy = h.handledBy;
+        if ("confirmedBy" in h) next.confirmedBy = h.confirmedBy;
+        next.history = [...(next.history || prev.history || []), { at: next.updatedAt, event: h.event }];
+      }
+    }
 
     if (patch.dispatch) { // see ordersStore.js
       const d = normaliseDispatch(patch.dispatch);
