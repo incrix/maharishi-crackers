@@ -8,6 +8,8 @@ import { getCatalogue } from "@/util/productsStore";
 import { applyPayment, removePayment } from "@/util/orderPayments";
 import { normaliseDispatch, dispatchEvent } from "@/util/orderDispatch";
 import { isCombo, normaliseContents } from "@/util/combo";
+import { takeStock, moveStock } from "@/util/productsStore";
+import { stockHeld, stockChange, OutOfStockError } from "@/util/orderStock";
 
 /**
  * File-backed order store — the local-development fallback.
@@ -173,6 +175,10 @@ export async function createOrder({ billingDetails, productList, emailSent, sour
       note: note || "",
       history: [{ at: new Date().toISOString(), event: source === "pos" ? "Billed at the counter" : "Order received" }],
     };
+
+    // See ordersStore.js: stock first, all or nothing.
+    const short = await takeStock(stockHeld(order));
+    if (short.length) throw new OutOfStockError(short, items);
 
     orders.push(order);
     await writeAll(orders);
@@ -494,6 +500,8 @@ export async function updateOrder(id, patch) {
 
     orders[i] = recomputeTotals(next);
     await writeAll(orders);
+
+    await moveStock(stockChange(prev, orders[i])).catch((err) => console.error("stock not adjusted:", err.message));
     return orders[i];
   });
 }

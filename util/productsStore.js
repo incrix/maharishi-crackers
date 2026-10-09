@@ -1,5 +1,6 @@
 import {
   TABLE, getItem, putItem, deleteItem, scanAll, isEmpty, batchWrite, isDbConfigured, assertUsableStore,
+  takeStock as dbTakeStock, moveStock as dbMoveStock,
 } from "@/util/db/dynamo";
 import { PRODUCT_SEED_URL, absoluteAssetUrl } from "@/util/config";
 import * as fileStore from "./productsStore.file";
@@ -236,4 +237,20 @@ export async function reorderProducts(ids) {
   const moved = reassignSlots(list.map((id) => byId.get(id)).filter(Boolean));
   if (moved.length) await batchWrite(TABLE.products, moved);
   return moved.length;
+}
+
+/**
+ * Stock for orders - see util/orderStock.js for how orders move it.
+ *
+ * takeStock(need) takes every line or none and returns the short ones as
+ * { id, left }; moveStock(change) adds (or, negative, takes) without a check.
+ */
+export async function takeStock(need) {
+  if (!useDb()) return fileStore.takeStock(need);
+  return dbTakeStock(need);
+}
+
+export async function moveStock(change) {
+  if (!useDb()) return fileStore.moveStock(change);
+  return dbMoveStock(change);
 }

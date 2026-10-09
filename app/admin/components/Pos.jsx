@@ -17,6 +17,7 @@ import QtyStepper from "@/app/components/commerce/QtyStepper";
 import { useAdmin } from "../AdminContext";
 import { basisMrp, effDiscount, unitOf } from "@/util/pricing";
 import { BAR_H } from "./AdminShell";
+import PriceEdit from "./PriceEdit";
 import { BUSINESS } from "@/util/site";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -110,7 +111,21 @@ export default function Pos() {
     return () => io.disconnect();
   }, [more, matching.length, visible]);
 
-  const add = (p) =>
+  /**
+   * Stock caps what a bill can hold: the server refuses a bill the shelf
+   * cannot cover, so the counter stops at the limit instead of failing at the
+   * end. `countInStock` is as of the last catalogue load, refreshed per bill.
+   */
+  const stockOf = (id) => Number(products.find((p) => p.id === id)?.countInStock) || 0;
+  const fits = (id, count) => {
+    if (count <= stockOf(id)) return true;
+    const left = stockOf(id);
+    notify(left > 0 ? `Only ${left} in stock` : "Out of stock", "error");
+    return false;
+  };
+
+  const add = (p) => {
+    if (!fits(p.id, countOf(p.id) + 1)) return;
     setLines((prev) => {
       const i = prev.findIndex((l) => l.id === p.id);
       if (i > -1) {
@@ -120,17 +135,37 @@ export default function Pos() {
       }
       return [...prev, { ...p, count: 1 }];
     });
+  };
 
   const setQty = (id, count) =>
-    setLines((prev) => prev.map((l) => (l.id === id ? { ...l, count } : l)).filter((l) => l.count > 0));
+    fits(id, count) && setLines((prev) => prev.map((l) => (l.id === id ? { ...l, count } : l)).filter((l) => l.count > 0));
 
   const adjust = (id, delta) =>
-    setLines((prev) => prev.map((l) => (l.id === id ? { ...l, count: l.count + delta } : l)).filter((l) => l.count > 0));
+    (delta < 0 || fits(id, countOf(id) + delta)) && setLines((prev) => prev.map((l) => (l.id === id ? { ...l, count: l.count + delta } : l)).filter((l) => l.count > 0));
 
   const posBasis = { pos: true, extra };
-  const net = (l) => unitOf(l, posBasis);
+  // `rate` is a price typed in at the counter for this bill only. It is the
+  // final price each, so ExtraDiscount does not move it.
+  const net = (l) => (l.rate != null ? l.rate : unitOf(l, posBasis));
   const total = lines.reduce((a, l) => a + Math.round(net(l) * l.count), 0);
   const mrp = lines.reduce((a, l) => a + Math.round(basisMrp(l) * l.count), 0);
+
+  /**
+   * A line as the server stores it: the MRP and one discount. An edited price
+   * keeps the real MRP and becomes the discount that lands on it exactly, so
+   * the proforma still shows what the item lists at and what was given off.
+   */
+  const priced = (l) => {
+    const m = basisMrp(l);
+    if (l.rate == null) return { price: m, discount: effDiscount(l, posBasis) };
+    if (m > 0) return { price: m, discount: 100 * (1 - l.rate / m) };
+    return { price: l.rate, discount: 0 };
+  };
+
+  // Whole rupees, like every other figure on this bill.
+  const setRate = (id, rate) =>
+    setLines((prev) => prev.map((l) => (l.id === id ? { ...l, rate: rate == null ? null : Math.round(rate) } : l)));
+  const anyEdited = lines.some((l) => l.rate != null);
   const units = lines.reduce((a, l) => a + l.count, 0);
 
   const reset = () => { billKey.current = newKey(); setConfirmClear(false); setLines([]); setList2(false); setExtra(""); setCustomer({ name: "", phone: "", email: "", address: "", city: "", state: "Tamil Nadu", zip: "" }); setNote(""); };
@@ -146,7 +181,7 @@ export default function Pos() {
       if (customer.email?.trim()) {
         const { buildProformaBase64 } = await import("@/util/proforma");
         invoice = await buildProformaBase64({ customer, items: lines.map((l) => ({
-          name: l.name, mrp: basisMrp(l), discount: effDiscount(l, posBasis), count: l.count,
+          name: l.name, mrp: priced(l).price, discount: priced(l).discount, count: l.count,
         })) }).catch(() => undefined);
       }
 
@@ -163,7 +198,7 @@ export default function Pos() {
           // priced as though the bill had carried no concession at all.
           extraDiscount: Math.min(95, Math.max(0, Number(extra) || 0)),
           productList: lines.map((l) => ({
-            ...l, price: basisMrp(l), discount: effDiscount(l, posBasis),
+            ...l, ...priced(l),
           })),
         }),
       });
@@ -177,6 +212,8 @@ export default function Pos() {
       // happened", which is exactly how it felt.
       setSheetOpen(false);
       loadOrders();
+      // The bill just took stock; show the counts as they now stand.
+      loadCatalogue();
     } catch {
       notify("Could not reach the server", "error");
     } finally {
@@ -281,7 +318,8 @@ export default function Pos() {
                 sx={{ p: 0.75, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
                 <Stack flex={1} minWidth={0}>
                   <Typography fontSize={12.5} fontWeight={800} color="var(--text-color)" noWrap>{l.name}</Typography>
-                  <Typography fontSize={10.5} color="var(--text-color-secondary)">{inr(net(l))} each</Typography>
+                  <PriceEdit value={net(l)} base={unitOf(l, posBasis)} edited={l.rate != null}
+                    onChange={(r) => setRate(l.id, r)} format={inr} />
                 </Stack>
                 <QtyStepper size="sm" value={l.count} onChange={(q) => setQty(l.id, q)} onAdjust={(d) => adjust(l.id, d)} />
                 <Typography fontSize={13} fontWeight={800} color="var(--text-color)" sx={{ minWidth: 58, textAlign: "right" }}>
@@ -340,7 +378,7 @@ export default function Pos() {
             inputProps={{ inputMode: "decimal", "aria-label": "extra discount percent" }}
             helperText={
               Number(extra) > 0
-                ? `${Number(extra)}% off every line`
+                ? `${Number(extra)}% off every line${anyEdited ? " (not on edited prices)" : ""}`
                 : "Optional — a concession for this bill only"
             }
             sx={fld}
@@ -459,6 +497,7 @@ export default function Pos() {
                     sx={{ p: 1, borderRadius: "var(--radius)", position: "relative",
                           border: "1.5px solid", borderColor: n ? "var(--primary-color)" : "var(--border)",
                           backgroundColor: n ? "var(--primary-softer)" : "var(--surface)", cursor: "pointer",
+                          opacity: p.countInStock > 0 || n ? 1 : 0.5,
                           transition: "border-color .12s, background-color .12s",
                           "&:active": { transform: "scale(0.98)" },
                           "&:hover": { borderColor: "var(--primary-color)" } }}>
@@ -503,7 +542,11 @@ export default function Pos() {
                     ) : (
                       <Stack direction="row" justifyContent="space-between" alignItems="baseline">
                         <Typography fontSize={13} fontWeight={800} color="var(--primary-color)">{inr(net(p))}</Typography>
-                        <Typography fontSize={10} color="var(--text-color-trinary)">{p.countInStock} left</Typography>
+                        {p.countInStock > 0 ? (
+                          <Typography fontSize={10} color="var(--text-color-trinary)">{p.countInStock} left</Typography>
+                        ) : (
+                          <Typography fontSize={10} fontWeight={800} color="var(--danger)">Out of stock</Typography>
+                        )}
                       </Stack>
                     )}
                 </Stack>

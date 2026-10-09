@@ -4,7 +4,8 @@ import {
 } from "@/util/db/dynamo";
 import * as fileStore from "./ordersStore.file";
 import { basisMrp, effDiscount, unitOf, orderBasis, inferBasis } from "@/util/pricing";
-import { getCatalogue } from "@/util/productsStore";
+import { getCatalogue, takeStock, moveStock } from "@/util/productsStore";
+import { stockHeld, stockChange, OutOfStockError } from "@/util/orderStock";
 import { applyPayment, removePayment } from "@/util/orderPayments";
 import { normaliseDispatch, dispatchEvent } from "@/util/orderDispatch";
 import { isCombo, normaliseContents } from "@/util/combo";
@@ -182,6 +183,14 @@ export async function createOrder({ billingDetails, productList, emailSent, sour
     history: [{ at: now, event: source === "pos" ? "Billed at the counter" : "Order received" }],
   });
 
+  // Stock comes out before the order exists, all or nothing, so two customers
+  // cannot both buy the last box. Every way out of here below either writes
+  // the order or hands the stock back.
+  const short = await takeStock(stockHeld(order));
+  if (short.length) throw new OutOfStockError(short, items);
+  const giveBack = () => moveStock(stockHeld(order)).catch((err) =>
+    console.error(`stock for unsaved ${order.ref} not returned:`, err.message));
+
   // Claim the bill BEFORE writing it. Losing the claim means another device
   // already wrote this same bill, so hand back theirs rather than surfacing an
   // error to the biller - or writing a second order with a second reference.
@@ -196,13 +205,18 @@ export async function createOrder({ billingDetails, productList, emailSent, sour
     if (!won) {
       const claimed = await getItem(TABLE.orders, claimId(key));
       const winner = claimed?.orderId ? await getItem(TABLE.orders, claimed.orderId) : null;
-      if (winner) return { ...strip(winner), duplicate: true };
+      if (winner) { await giveBack(); return { ...strip(winner), duplicate: true }; }
       // The claim exists but its order does not - the winner died between the
       // two writes. Take it over rather than leaving the till unable to bill.
     }
   }
 
-  await putItem(TABLE.orders, { ...order });
+  try {
+    await putItem(TABLE.orders, { ...order });
+  } catch (err) {
+    await giveBack();
+    throw err;
+  }
   return order;
 }
 
@@ -535,7 +549,14 @@ async function applyOnce(id, patch) {
   // Orders written before revisions existed carry no rev at all; passing null
   // tells the guard to accept either an absent revision or zero.
   const won = await putIfRev(TABLE.orders, { ...saved }, prev.rev == null ? null : prev.rev);
-  return won ? saved : CONFLICT;
+  if (!won) return CONFLICT;
+
+  // Stock follows the order: a cancel gives units back, a reopen or an added
+  // line takes them. Only after the write has landed, so a retried conflict
+  // never moves stock twice. A failure here must not undo a saved order.
+  await moveStock(stockChange(prev, saved)).catch((err) =>
+    console.error(`stock for ${saved.ref} not adjusted:`, err.message));
+  return saved;
 }
 
 export async function orderStats() {
