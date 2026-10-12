@@ -14,6 +14,7 @@ import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded";
 import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { pdf } from "@react-pdf/renderer";
+import { readCart, restoreCart, clearSavedCart } from "@/util/cartStore";
 import Template1 from "@/util/invoice/Template1/Template";
 import { assetUrl } from "@/util/config";
 import { paymentOptions } from "@/util/paymentDetails";
@@ -338,8 +339,10 @@ function OrderSummary({ billingDetails, onBack, onDone, toast }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    try { setCart(JSON.parse(localStorage.getItem("cart")) || []); } catch { setCart([]); }
-    setReady(true);
+    // Through the cart store, so a cart the phone wiped from localStorage is
+    // still found in its backup - see util/cartStore.js.
+    setCart(readCart());
+    restoreCart().then((c) => { setCart(c); setReady(true); });
   }, []);
 
   const total = cart.reduce((a, i) => a + line(i), 0);
@@ -398,7 +401,7 @@ function OrderSummary({ billingDetails, onBack, onDone, toast }) {
       }
 
       const recorded = Boolean(ref);
-      if (recorded) localStorage.removeItem("cart");
+      if (recorded) clearSavedCart();
       onDone({ emailSent: mail.customer, recorded, ref, mail, invoice: blob, billing: billingDetails, total, cart });
     } catch (err) {
       console.error("Place order failed:", err);
