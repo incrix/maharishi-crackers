@@ -96,7 +96,7 @@ export default async function ProductPage({ params }) {
       q: `Is ${product.name} available online?`,
       a:
         product.countInStock > 0
-          ? `Yes, ${product.name} is in stock. Add it to your cart and place your order — the minimum order value is ₹3,000 within Tamil Nadu (₹10,000 for other states) and we deliver across India.`
+          ? `Yes, ${product.name} is in stock. Add it to your cart and place your order — the minimum order value is ₹3,000 within Tamil Nadu (₹7,000 for Karnataka, Kerala, Andhra Pradesh and Puducherry; ₹10,000 for other states) and we deliver across India.`
           : `${product.name} is currently out of stock. Call ${BUSINESS.phone[0]} and we will tell you when it is back.`,
     },
   ];

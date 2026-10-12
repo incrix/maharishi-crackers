@@ -3,7 +3,7 @@ import { requireAdmin } from "@/util/admin/auth";
 import { sendOrderMails } from "@/util/sendMail";
 import { sendOrderWhatsApps } from "@/util/sendWhatsApp";
 import { saveProforma, proformaUrl } from "@/util/proformaStore";
-import { minimumFor, meetsMinimumFor, MIN_ORDER_TN } from "@/util/minimumOrder";
+import { meetsMinimumFor, belowMinimumMessage } from "@/util/minimumOrder";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 /** Rounded per unit, the same way the cart and checkout round it. */
@@ -56,12 +56,7 @@ export async function POST(request) {
     if (!isPos) {
       const total = productList.reduce((n, p) => n + lineAmount(p), 0);
       if (!meetsMinimumFor(total, billingDetails.state)) {
-        const min = minimumFor(billingDetails.state);
-        return Response.json({
-          error: min > MIN_ORDER_TN
-            ? `Orders delivered outside Tamil Nadu must be above ${inr(min)}.`
-            : `Order total must be above ${inr(min)}.`,
-        }, { status: 400 });
+        return Response.json({ error: belowMinimumMessage(billingDetails.state) }, { status: 400 });
       }
     }
 
