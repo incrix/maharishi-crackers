@@ -74,3 +74,30 @@ export const belowMinimumMessage = (state) => {
  * minimum, and the cart and checkout already gate that way.
  */
 export const meetsMinimumFor = (total, state) => Number(total) > minimumFor(state);
+
+/**
+ * Whether a typed-in state is Puducherry. Same matching as isTamilNadu.
+ */
+export function isPuducherry(state) {
+  const s = String(state || "").toLowerCase().replace(/[^a-z]/g, "");
+  return ["puducherry", "pondicherry", "pondichery", "puduchery", "puducheri", "pondy", "py"].includes(s);
+}
+
+/**
+ * Whether the customer must call the shop before paying.
+ *
+ * Outside Tamil Nadu and Puducherry, transport is not always available and may
+ * need to be paid for up front, so the shop confirms by phone first.
+ */
+export const needsCallBeforePayment = (state) =>
+  Boolean(String(state || "").trim()) && !isTamilNadu(state) && !isPuducherry(state);
+
+/**
+ * The call-before-paying notice, shown at checkout and repeated in the order
+ * email. Takes the shop name and phone so this file needs no more imports.
+ */
+export const callBeforePaymentNotice = (state, shop, phone) =>
+  `As your order is for delivery to ${String(state || "").trim()} (outside Tamil Nadu & Puducherry), `
+  + `please call ${shop} on ${phone} to confirm before making any payment. `
+  + `Transport outside Tamil Nadu & Puducherry depends on availability and may require pre-payment. `
+  + `Once we confirm by phone, complete the necessary steps to receive your crackers and enjoy this Diwali 2026!`;

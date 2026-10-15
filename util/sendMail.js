@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 import { paymentState } from "@/util/orderPayments";
 import { paymentOptions } from "@/util/paymentDetails";
 import { getPaymentDetails } from "@/util/settingsStore";
+import { needsCallBeforePayment, callBeforePaymentNotice } from "@/util/minimumOrder";
 
 const inr = (n) => `Rs. ${Number(n || 0).toLocaleString("en-IN")}`;
 
@@ -145,12 +146,16 @@ export async function sendCustomerMail({ order, invoice, kind = "invoice" }) {
   const first = order.customer.name?.split(" ")[0] || "";
   const pay = paymentState(order);
   const d = order.dispatch || {};
+  // Outside Tamil Nadu & Puducherry the customer calls to confirm transport first.
+  const callFirst = kind === "received" && needsCallBeforePayment(order.customer.state);
 
   const COPY = {
     received: {
-      subject: `Order ${order.ref} received — please pay ${inr(order.total)} to confirm`,
+      subject: callFirst
+        ? `Order ${order.ref} received — please call us to confirm before paying`
+        : `Order ${order.ref} received — please pay ${inr(order.total)} to confirm`,
       title: `Thanks ${first}, we've received your order`,
-      lead: `Your order <b>${order.ref}</b> for <b>${inr(order.total)}</b> has been received. Please check the attached proforma to verify the items in your order, then kindly pay using the details below and send us the confirmation — we start packing as soon as the payment reaches us.`,
+      lead: `Your order <b>${order.ref}</b> for <b>${inr(order.total)}</b> has been received. Please check the attached proforma to verify the items in your order, then ${callFirst ? "<b>call us to confirm transport</b> and only then pay" : "kindly pay"} using the details below and send us the confirmation — we start packing as soon as the payment reaches us.`,
       payment: true,
       items: false,
     },
@@ -202,6 +207,12 @@ export async function sendCustomerMail({ order, invoice, kind = "invoice" }) {
 
   const body = `
     <p style="margin:0 0 16px;">${COPY.lead}</p>
+    ${callFirst ? `
+      <div style="margin:0 0 16px;padding:14px 16px;background:#fff8e1;border:1px solid #ffd77a;border-radius:10px;font-size:14px;line-height:1.6;">
+        <div style="font-weight:800;color:#8a5300;margin:0 0 6px;">&#128222; Call us before you pay</div>
+        ${callBeforePaymentNotice(order.customer.state, BUSINESS.name, BUSINESS.phone[0]).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))}
+        <div style="margin-top:10px;"><a href="tel:${BUSINESS.phone[0].replace(/[^\d+]/g, "")}" style="display:inline-block;padding:8px 16px;background:#b26a00;color:#fff;border-radius:8px;font-weight:bold;text-decoration:none;">Call ${BUSINESS.phone[0]}</a></div>
+      </div>` : ""}
     ${details ? paymentBlock(details, order) : ""}
     ${kind === "dispatch" && (d.transport || d.lr) ? `
       <div style="margin:0 0 16px;padding:12px 14px;background:#e8f0e4;border-radius:8px;font-size:14px;">
