@@ -10,7 +10,7 @@ import {
   searchActionSchema, merchantPolicySchema,
 } from "@/util/site";
 import { MIN_ORDER } from "@/util/commerce";
-import { MIN_ORDER_OUTSIDE_TN, MIN_ORDER_NEARBY, NEARBY_STATES } from "@/util/minimumOrder";
+import { MIN_ORDER_NEARBY } from "@/util/minimumOrder";
 import { getProducts, getCategories } from "@/util/products.server";
 
 /**
@@ -63,7 +63,7 @@ const ALL_FAQS = [
   },
   {
     q: "Is there a minimum order?",
-    a: `Yes - ₹${MIN_ORDER.toLocaleString("en-IN")} for an order placed through this site and delivered within Tamil Nadu, ₹${MIN_ORDER_NEARBY.toLocaleString("en-IN")} for ${NEARBY_STATES}, and ₹${MIN_ORDER_OUTSIDE_TN.toLocaleString("en-IN")} for delivery to other states. Transport is arranged by approved road carrier and a smaller consignment costs more to move than it is worth. There is no minimum over the counter.`,
+    a: `Yes - ₹${MIN_ORDER.toLocaleString("en-IN")} for an order placed through this site and delivered within Tamil Nadu, and ₹${MIN_ORDER_NEARBY.toLocaleString("en-IN")} for Puducherry. This season we are taking online orders only for Tamil Nadu and Puducherry; orders for other states are closed. Transport is arranged by approved road carrier and a smaller consignment costs more to move than it is worth. There is no minimum over the counter.`,
   },
   {
     q: "What kinds of fireworks do you stock?",

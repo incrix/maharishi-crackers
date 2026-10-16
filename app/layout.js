@@ -4,6 +4,7 @@ import Header from "@/app/components/header";
 import { getBanner } from "@/util/settingsStore";
 import Footer from "@/app/components/footer";
 import ShopChrome from "@/app/components/shopChrome";
+import SeasonNotice from "@/app/components/SeasonNotice";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { CartProvider } from "@/context/CartContext";
 import { BillingProvider } from "@/context/BillingContext";
@@ -73,6 +74,7 @@ export default async function RootLayout({ children }) {
               {children}
               <ShopChrome>
                 <Footer />
+                <SeasonNotice />
               </ShopChrome>
               {/* TODO(abishek): Maharishi's own GA4 measurement ID. The
                   inherited analytics property was removed — leaving it would
