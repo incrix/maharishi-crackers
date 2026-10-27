@@ -3,7 +3,7 @@ import { requireAdmin } from "@/util/admin/auth";
 import { sendOrderMails } from "@/util/sendMail";
 import { sendOrderWhatsApps } from "@/util/sendWhatsApp";
 import { saveProforma, proformaUrl } from "@/util/proformaStore";
-import { meetsMinimumFor, belowMinimumMessage, acceptsDeliveryTo, deliveryClosedMessage } from "@/util/minimumOrder";
+import { meetsMinimumFor, belowMinimumMessage, acceptsDeliveryTo, deliveryClosedMessage, onlineSalesOpen, SALES_CLOSED_MESSAGE } from "@/util/minimumOrder";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 /** Rounded per unit, the same way the cart and checkout round it. */
@@ -54,6 +54,10 @@ export async function POST(request) {
     // The website minimum, checked here as well as at checkout so it holds no
     // matter what the browser sends. Counter bills are exempt - see Pos.jsx.
     if (!isPos) {
+      // Website orders are closed for the season once the cut-off passes.
+      if (!onlineSalesOpen()) {
+        return Response.json({ error: SALES_CLOSED_MESSAGE }, { status: 400 });
+      }
       // Out-of-state website orders are closed this season.
       if (!acceptsDeliveryTo(billingDetails.state)) {
         return Response.json({ error: deliveryClosedMessage(billingDetails.state) }, { status: 400 });

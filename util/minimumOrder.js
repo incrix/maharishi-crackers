@@ -114,6 +114,20 @@ export const SALES_CLOSE = "25 October 2026";
 /** Last day orders are taken (local date), for counting the days left. */
 export const SALES_CLOSE_DATE = new Date(2026, 9, 25);
 
+/**
+ * When website orders stop for the season. An exact instant in IST, so the
+ * server (UTC on Vercel) and the customer's browser agree on it. Checkout and
+ * the order route both check this; counter bills are not affected.
+ *
+ * Online sales closed on 27 October 2026.
+ */
+export const ONLINE_SALES_CLOSE_AT = new Date("2026-10-27T00:00:00+05:30");
+
+export const onlineSalesOpen = (now = Date.now()) => now < ONLINE_SALES_CLOSE_AT.getTime();
+
+export const SALES_CLOSED_MESSAGE =
+  "Online sales are closed for Diwali 2026. Our shop counter is open as usual - please visit us to buy.";
+
 export const acceptsDeliveryTo = (state) => isTamilNadu(state) || isPuducherry(state);
 
 export const deliveryClosedMessage = (state) =>
